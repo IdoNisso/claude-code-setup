@@ -1,0 +1,24 @@
+{
+  "layout": "vertical",     // or "horizontal"
+
+  // ── Standard (on by default) ──
+  "5h Usage": true,
+  "7d Usage": true,
+  "Context": true,
+  "Model": true,
+  "Version": true,
+
+  // ── Session (off by default) ──
+  "Session": true,
+  "Changes": true,
+  "Directory": true,
+  "Cost": false,
+
+  // ── Advanced (off by default) ──
+  "Tokens": false,
+  "Output Tokens": false,
+  "Cache": false,
+  "API Time": false,
+  "5h Reset": false,
+  "7d Reset": false
+}
