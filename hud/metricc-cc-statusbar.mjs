@@ -9,7 +9,7 @@
  * - Transcript JSONL (session start, running agents)
  */
 
-import { existsSync, readFileSync, writeFileSync, statSync, openSync, readSync, closeSync, mkdirSync, createReadStream } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, appendFileSync, statSync, openSync, readSync, closeSync, mkdirSync, createReadStream } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname, basename } from "node:path";
 import { createInterface } from "node:readline";
@@ -19,6 +19,7 @@ import { execSync } from "node:child_process";
 // ── Constants ──────────────────────────────────────────────────────────────────
 const CACHE_TTL_MS = 60_000;          // 60s cache for usage API
 const CACHE_TTL_FAILURE_MS = 15_000;  // 15s on failure
+const CACHE_TTL_RATELIMIT_MS = 120_000; // 120s backoff on 429
 const API_TIMEOUT_MS = 8000;
 const MAX_TAIL_BYTES = 512 * 1024;    // 500KB tail read for large transcripts
 const MAX_AGENT_MAP = 100;
@@ -41,6 +42,18 @@ const CONFIG_PATH = join(HOME, ".claude", "hud", "config.jsonc");
 const CACHE_PATH = join(HOME, ".claude", "hud", ".usage-cache.json");
 const VERSION_CACHE_PATH = join(HOME, ".claude", "hud", ".version-cache.json");
 const CRED_PATH = join(HOME, ".claude", ".credentials.json");
+
+// ── Debug Logging ─────────────────────────────────────────────────────────────
+const DEBUG = process.env.DEBUG_USAGE === "1";
+const DEBUG_LOG_PATH = join(HOME, ".claude", "hud", ".usage-debug.log");
+
+function debugLog(...args) {
+  if (!DEBUG) return;
+  try {
+    const line = `[${new Date().toISOString()}] ${args.map(a => typeof a === "object" ? JSON.stringify(a) : a).join(" ")}\n`;
+    appendFileSync(DEBUG_LOG_PATH, line);
+  } catch { /* */ }
+}
 
 // ── ANSI Colors ────────────────────────────────────────────────────────────────
 const c = {
@@ -159,16 +172,16 @@ function readCache() {
   }
 }
 
-function writeCache(data, error = false) {
+function writeCache(data, error = false, rateLimited = false) {
   try {
     const dir = dirname(CACHE_PATH);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(CACHE_PATH, JSON.stringify({ timestamp: Date.now(), data, error }));
+    writeFileSync(CACHE_PATH, JSON.stringify({ timestamp: Date.now(), data, error, rateLimited }));
   } catch { /* ignore */ }
 }
 
 function isCacheValid(cache) {
-  const ttl = cache.error ? CACHE_TTL_FAILURE_MS : CACHE_TTL_MS;
+  const ttl = cache.rateLimited ? CACHE_TTL_RATELIMIT_MS : cache.error ? CACHE_TTL_FAILURE_MS : CACHE_TTL_MS;
   return Date.now() - cache.timestamp < ttl;
 }
 
@@ -226,16 +239,20 @@ function refreshAccessToken(refreshToken) {
           try {
             const p = JSON.parse(data);
             if (p.access_token) {
+              debugLog("REFRESH: OK");
               resolve({ accessToken: p.access_token, refreshToken: p.refresh_token || refreshToken, expiresAt: p.expires_in ? Date.now() + p.expires_in * 1000 : p.expires_at });
               return;
             }
-          } catch { /* */ }
+            debugLog("REFRESH: 200 but no access_token in response");
+          } catch { debugLog("REFRESH: 200 but JSON parse failed"); }
+        } else {
+          debugLog("REFRESH: failed", { status: res.statusCode, body: data.slice(0, 200) });
         }
         resolve(null);
       });
     });
-    req.on("error", () => resolve(null));
-    req.on("timeout", () => { req.destroy(); resolve(null); });
+    req.on("error", (e) => { debugLog("REFRESH: network error", e.message); resolve(null); });
+    req.on("timeout", () => { debugLog("REFRESH: timeout"); req.destroy(); resolve(null); });
     req.end(body);
   });
 }
@@ -253,12 +270,15 @@ function fetchUsage(accessToken) {
       res.on("data", (ch) => { data += ch; });
       res.on("end", () => {
         if (res.statusCode === 200) {
-          try { resolve(JSON.parse(data)); } catch { resolve(null); }
-        } else resolve(null);
+          try { resolve({ ok: true, data: JSON.parse(data) }); }
+          catch { resolve({ ok: false, status: 200, body: "JSON parse error" }); }
+        } else {
+          resolve({ ok: false, status: res.statusCode, body: data.slice(0, 200) });
+        }
       });
     });
-    req.on("error", () => resolve(null));
-    req.on("timeout", () => { req.destroy(); resolve(null); });
+    req.on("error", (e) => resolve({ ok: false, status: 0, body: e.message }));
+    req.on("timeout", () => { req.destroy(); resolve({ ok: false, status: 0, body: "timeout" }); });
     req.end();
   });
 }
@@ -277,31 +297,55 @@ function writeBackCredentials(creds) {
 
 async function getUsage() {
   const cache = readCache();
-  if (cache && isCacheValid(cache)) return cache.data;
+  if (cache && isCacheValid(cache)) {
+    debugLog("CACHE: hit", { age: Date.now() - cache.timestamp, error: cache.error });
+    return cache.data;
+  }
 
   let creds = getCredentials();
-  if (!creds) { writeCache(null, true); return null; }
+  if (!creds) {
+    debugLog("FAIL: no credentials found");
+    writeCache(null, true);
+    return null;
+  }
+
+  const now = Date.now();
+  debugLog("getUsage()", { tokenExpiresIn: creds.expiresAt ? creds.expiresAt - now : "none", cacheAge: cache ? now - cache.timestamp : "miss" });
 
   // Refresh if expired
-  if (creds.expiresAt && creds.expiresAt <= Date.now()) {
+  if (creds.expiresAt && creds.expiresAt <= now) {
     if (creds.refreshToken) {
+      debugLog("TOKEN: expired, attempting refresh");
       const refreshed = await refreshAccessToken(creds.refreshToken);
       if (refreshed) {
         creds = { ...creds, ...refreshed };
         writeBackCredentials(creds);
       } else {
+        debugLog("FAIL: token expired, refresh failed");
         writeCache(null, true);
         return null;
       }
     } else {
+      debugLog("FAIL: token expired, no refreshToken");
       writeCache(null, true);
       return null;
     }
   }
 
-  const resp = await fetchUsage(creds.accessToken);
-  if (!resp) { writeCache(null, true); return null; }
+  const result = await fetchUsage(creds.accessToken);
+  if (!result.ok) {
+    debugLog("FAIL: API error", { status: result.status, body: result.body, tokenExpiresIn: creds.expiresAt - now });
+    if (result.status === 429) {
+      const staleData = cache?.data ?? null;
+      debugLog("RATELIMIT: backing off 120s", { preservingStaleData: !!staleData });
+      writeCache(staleData, !staleData, true);
+      return staleData;
+    }
+    writeCache(null, true);
+    return null;
+  }
 
+  const resp = result.data;
   const clamp = (v) => (v == null || !isFinite(v)) ? 0 : Math.max(0, Math.min(100, v));
   const parseDate = (s) => { try { const d = new Date(s); return isNaN(d.getTime()) ? null : d; } catch { return null; } };
 
@@ -311,6 +355,7 @@ async function getUsage() {
     sevenDay: clamp(resp.seven_day?.utilization),
     sevenDayResets: parseDate(resp.seven_day?.resets_at),
   };
+  debugLog("OK", { fiveHour: data.fiveHour, sevenDay: data.sevenDay });
   writeCache(data);
   return data;
 }
