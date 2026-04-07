@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, writeFileSync, appendFileSync, statSync, openSync, readSync, closeSync, mkdirSync, createReadStream } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname, basename } from "node:path";
+import { join, dirname } from "node:path";
 import { createInterface } from "node:readline";
 import https from "node:https";
 import { execSync } from "node:child_process";
@@ -24,8 +24,6 @@ const API_TIMEOUT_MS = 8000;
 const MAX_TAIL_BYTES = 512 * 1024;    // 500KB tail read for large transcripts
 const MAX_AGENT_MAP = 100;
 const STALE_AGENT_MS = 30 * 60_000;   // 30 min = stale agent
-const OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-
 const VERSION_CACHE_TTL_MS = 3_600_000; // 1hr cache for npm version check
 
 const ALL_COLUMNS = [
@@ -218,47 +216,11 @@ function getCredentials() {
   return null;
 }
 
-function refreshAccessToken(refreshToken) {
-  return new Promise((resolve) => {
-    const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: OAUTH_CLIENT_ID,
-    }).toString();
-    const req = https.request({
-      hostname: "platform.claude.com",
-      path: "/v1/oauth/token",
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(body) },
-      timeout: API_TIMEOUT_MS,
-    }, (res) => {
-      let data = "";
-      res.on("data", (ch) => { data += ch; });
-      res.on("end", () => {
-        if (res.statusCode === 200) {
-          try {
-            const p = JSON.parse(data);
-            if (p.access_token) {
-              debugLog("REFRESH: OK");
-              resolve({ accessToken: p.access_token, refreshToken: p.refresh_token || refreshToken, expiresAt: p.expires_in ? Date.now() + p.expires_in * 1000 : p.expires_at });
-              return;
-            }
-            debugLog("REFRESH: 200 but no access_token in response");
-          } catch { debugLog("REFRESH: 200 but JSON parse failed"); }
-        } else {
-          debugLog("REFRESH: failed", { status: res.statusCode, body: data.slice(0, 200) });
-        }
-        resolve(null);
-      });
-    });
-    req.on("error", (e) => { debugLog("REFRESH: network error", e.message); resolve(null); });
-    req.on("timeout", () => { debugLog("REFRESH: timeout"); req.destroy(); resolve(null); });
-    req.end(body);
-  });
-}
-
 function fetchUsage(accessToken) {
   return new Promise((resolve) => {
+    let settled = false;
+    const settle = (val) => { if (!settled) { settled = true; clearTimeout(hardTimer); resolve(val); } };
+
     const req = https.request({
       hostname: "api.anthropic.com",
       path: "/api/oauth/usage",
@@ -270,29 +232,21 @@ function fetchUsage(accessToken) {
       res.on("data", (ch) => { data += ch; });
       res.on("end", () => {
         if (res.statusCode === 200) {
-          try { resolve({ ok: true, data: JSON.parse(data) }); }
-          catch { resolve({ ok: false, status: 200, body: "JSON parse error" }); }
+          try { settle({ ok: true, data: JSON.parse(data) }); }
+          catch { settle({ ok: false, status: 200, body: "JSON parse error" }); }
         } else {
-          resolve({ ok: false, status: res.statusCode, body: data.slice(0, 200) });
+          settle({ ok: false, status: res.statusCode, body: data.slice(0, 200) });
         }
       });
     });
-    req.on("error", (e) => resolve({ ok: false, status: 0, body: e.message }));
-    req.on("timeout", () => { req.destroy(); resolve({ ok: false, status: 0, body: "timeout" }); });
+    req.on("error", (e) => settle({ ok: false, status: 0, body: e.message }));
+    req.on("timeout", () => req.destroy());
+
+    // Hard wall-clock timeout covering DNS, connect, and transfer
+    const hardTimer = setTimeout(() => { req.destroy(); settle({ ok: false, status: 0, body: "timeout" }); }, API_TIMEOUT_MS);
+
     req.end();
   });
-}
-
-function writeBackCredentials(creds) {
-  try {
-    if (!existsSync(CRED_PATH)) return;
-    const parsed = JSON.parse(readFileSync(CRED_PATH, "utf-8"));
-    const target = parsed.claudeAiOauth || parsed;
-    target.accessToken = creds.accessToken;
-    if (creds.expiresAt != null) target.expiresAt = creds.expiresAt;
-    if (creds.refreshToken) target.refreshToken = creds.refreshToken;
-    writeFileSync(CRED_PATH, JSON.stringify(parsed, null, 2));
-  } catch { /* */ }
 }
 
 async function getUsage() {
@@ -302,39 +256,23 @@ async function getUsage() {
     return cache.data;
   }
 
-  let creds = getCredentials();
+  const creds = getCredentials();
   if (!creds) {
     debugLog("FAIL: no credentials found");
     writeCache(null, true);
     return null;
   }
 
-  const now = Date.now();
-  debugLog("getUsage()", { tokenExpiresIn: creds.expiresAt ? creds.expiresAt - now : "none", cacheAge: cache ? now - cache.timestamp : "miss" });
-
-  // Refresh if expired
-  if (creds.expiresAt && creds.expiresAt <= now) {
-    if (creds.refreshToken) {
-      debugLog("TOKEN: expired, attempting refresh");
-      const refreshed = await refreshAccessToken(creds.refreshToken);
-      if (refreshed) {
-        creds = { ...creds, ...refreshed };
-        writeBackCredentials(creds);
-      } else {
-        debugLog("FAIL: token expired, refresh failed");
-        writeCache(null, true);
-        return null;
-      }
-    } else {
-      debugLog("FAIL: token expired, no refreshToken");
-      writeCache(null, true);
-      return null;
-    }
-  }
+  debugLog("getUsage()", { cacheAge: cache ? Date.now() - cache.timestamp : "miss" });
 
   const result = await fetchUsage(creds.accessToken);
   if (!result.ok) {
-    debugLog("FAIL: API error", { status: result.status, body: result.body, tokenExpiresIn: creds.expiresAt - now });
+    debugLog("FAIL: API error", { status: result.status, body: result.body });
+    if (result.status === 401) {
+      debugLog("AUTH: 401 — token expired or invalid, waiting for Claude Code to refresh");
+      writeCache(null, true);
+      return null;
+    }
     if (result.status === 429) {
       const staleData = cache?.data ?? null;
       debugLog("RATELIMIT: backing off 120s", { preservingStaleData: !!staleData });
