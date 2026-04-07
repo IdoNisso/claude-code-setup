@@ -23,3 +23,7 @@ Prefer `gh` CLI over `git` for remote operations (PRs, issues, repo info).
 Keep commits atomic (one logical change) and self-explanatory. Split into multiple commits if addressing different concerns.
 
 Commits should use conventional format: <type>[(<scope>)]: <subject> where type = feat|fix|docs|style|refactor|test|chore|perf. Subject: 50 chars max, imperative mood ("add" not "added"), no period. For small changes: subject line only, no body. For complex changes: add body explaining what/why (72-char lines) and reference issues.
+
+## Documentation
+
+Whenever completing work on a multi-commit feature, review any relevant documentation (like `README.md` and `CLAUDE.md`) and make sure they are up to date.
