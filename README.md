@@ -41,7 +41,7 @@ The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `
 - **context**: percent of context window used (green ≤20%, yellow ≤60%, red above) with a humanized token count
 - **model**: display name, colored by family (Haiku/Sonnet/Opus)
 - **effort**: current effort level, when set
-- **5h / wk**: 5-hour and weekly account usage quotas. The `5h`/`wk` labels are orange; the utilization percent is colored by level (green <60%, yellow 60–80%, red >80%); the reset countdown (`Nm` / `~Nh` / `~Nd`) is colored by time remaining (green >1h, yellow >15m, red below).
+- **5h / wk**: 5-hour and weekly account usage quotas. The `5h`/`wk` labels are white; the utilization percent is colored by level (green <60%, yellow 60–80%, red >80%); the reset countdown (`Nm` / `~Nh` / `~Nd`) is colored by time remaining (green >1h, yellow >15m, red below).
 
 The git and effort sections are omitted when not applicable (e.g. outside a repo, or no effort level set).
 

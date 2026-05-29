@@ -130,9 +130,9 @@ quota_cell() {
   r=$(quota_reset "$reset_epoch")
   if [ -n "$r" ]; then
     rcol=$(reset_color "$reset_epoch")
-    printf "\033[38;5;208m%s \033[0m${col}%s%%\033[0m ${rcol}(%s)\033[0m" "$label" "$pct" "$r"
+    printf "\033[37m%s \033[0m${col}%s%%\033[0m ${rcol}(%s)\033[0m" "$label" "$pct" "$r"
   else
-    printf "\033[38;5;208m%s \033[0m${col}%s%%\033[0m" "$label" "$pct"
+    printf "\033[37m%s \033[0m${col}%s%%\033[0m" "$label" "$pct"
   fi
 }
 
@@ -145,7 +145,7 @@ if [ -f "$usage_cache" ] && jq -e '.five_pct' "$usage_cache" >/dev/null 2>&1; th
     "$(quota_cell "5h" "$five_pct" "$five_reset")" \
     "$(quota_cell "wk" "$week_pct" "$week_reset")")
 else
-  quota_line="\033[38;5;208m5h \033[0m\033[38;5;240mN/A\033[0m\033[38;5;240m | \033[0m\033[38;5;208mwk \033[0m\033[38;5;240mN/A\033[0m"
+  quota_line="\033[37m5h \033[0m\033[38;5;240mN/A\033[0m\033[38;5;240m | \033[0m\033[37mwk \033[0m\033[38;5;240mN/A\033[0m"
 fi
 
 # Assemble output: cwd | [git | S | U | A |] ctx% | model
