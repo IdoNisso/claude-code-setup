@@ -55,7 +55,7 @@ else
 fi
 ctx_section=$(printf "${ctx_color}%s%% (%s)\033[0m" "$pct" "$tokens_fmt")
 
-# ── Quota line: 5h + weekly usage from Anthropic OAuth usage API ──────────────
+# ── Quota segment: 5h + weekly usage from Anthropic OAuth usage API ───────────
 # Renders from a cache file only (never blocks). When the cache is stale a
 # detached background curl refreshes it for the next render. Strictly read-only
 # on the credentials file — it never writes ~/.claude/.credentials.json.
@@ -115,15 +115,24 @@ quota_color() {
   else printf "\033[1;32m"; fi
 }
 
-# Build one "label pct% (reset)" cell.
+# Color the reset countdown by time remaining: green >1h, yellow >15m, red below.
+reset_color() {
+  delta=$(( $1 - now ))
+  if [ "$delta" -ge 3600 ]; then printf "\033[1;32m"
+  elif [ "$delta" -ge 900 ]; then printf "\033[1;33m"
+  else printf "\033[1;31m"; fi
+}
+
+# Build one "label pct% (reset)" cell. Label orange; reset colored by time left.
 quota_cell() {
   label=$1; pct=$2; reset_epoch=$3
   col=$(quota_color "$pct")
   r=$(quota_reset "$reset_epoch")
   if [ -n "$r" ]; then
-    printf "\033[38;5;240m%s \033[0m${col}%s%%\033[0m \033[38;5;240m(%s)\033[0m" "$label" "$pct" "$r"
+    rcol=$(reset_color "$reset_epoch")
+    printf "\033[38;5;208m%s \033[0m${col}%s%%\033[0m ${rcol}(%s)\033[0m" "$label" "$pct" "$r"
   else
-    printf "\033[38;5;240m%s \033[0m${col}%s%%\033[0m" "$label" "$pct"
+    printf "\033[38;5;208m%s \033[0m${col}%s%%\033[0m" "$label" "$pct"
   fi
 }
 
@@ -136,7 +145,7 @@ if [ -f "$usage_cache" ] && jq -e '.five_pct' "$usage_cache" >/dev/null 2>&1; th
     "$(quota_cell "5h" "$five_pct" "$five_reset")" \
     "$(quota_cell "wk" "$week_pct" "$week_reset")")
 else
-  quota_line="\033[38;5;240m5h N/A | wk N/A\033[0m"
+  quota_line="\033[38;5;208m5h \033[0m\033[38;5;240mN/A\033[0m\033[38;5;240m | \033[0m\033[38;5;208mwk \033[0m\033[38;5;240mN/A\033[0m"
 fi
 
 # Assemble output: cwd | [git | S | U | A |] ctx% | model
@@ -160,5 +169,8 @@ if [ -n "$model" ]; then
     output=$(printf "%s\033[38;5;240m | \033[0m\033[37m%s\033[0m" "$output" "$effort")
   fi
 fi
+if [ -n "$quota_line" ]; then
+  output=$(printf "%s\033[38;5;240m | \033[0m%b" "$output" "$quota_line")
+fi
 
-printf "%b\n%b" "$output" "$quota_line"
+printf "%b" "$output"
