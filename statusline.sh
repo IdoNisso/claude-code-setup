@@ -115,21 +115,23 @@ quota_color() {
   else printf "\033[1;32m"; fi
 }
 
-# Color the reset countdown by time remaining: green >1h, yellow >15m, red below.
+# Color the reset countdown by time remaining, using per-window thresholds
+# (seconds): green >= green_min, yellow >= yellow_min, red below.
 reset_color() {
-  delta=$(( $1 - now ))
-  if [ "$delta" -ge 3600 ]; then printf "\033[1;32m"
-  elif [ "$delta" -ge 900 ]; then printf "\033[1;33m"
+  delta=$(( $1 - now )); yellow_min=$2; green_min=$3
+  if [ "$delta" -ge "$green_min" ]; then printf "\033[1;32m"
+  elif [ "$delta" -ge "$yellow_min" ]; then printf "\033[1;33m"
   else printf "\033[1;31m"; fi
 }
 
-# Build one "label pct% (reset)" cell. Label orange; reset colored by time left.
+# Build one "label pct% (reset)" cell. Label white; reset colored by time left
+# against the window's yellow/green thresholds (seconds).
 quota_cell() {
-  label=$1; pct=$2; reset_epoch=$3
+  label=$1; pct=$2; reset_epoch=$3; yellow_min=$4; green_min=$5
   col=$(quota_color "$pct")
   r=$(quota_reset "$reset_epoch")
   if [ -n "$r" ]; then
-    rcol=$(reset_color "$reset_epoch")
+    rcol=$(reset_color "$reset_epoch" "$yellow_min" "$green_min")
     printf "\033[37m%s \033[0m${col}%s%%\033[0m ${rcol}(%s)\033[0m" "$label" "$pct" "$r"
   else
     printf "\033[37m%s \033[0m${col}%s%%\033[0m" "$label" "$pct"
@@ -142,8 +144,8 @@ if [ -f "$usage_cache" ] && jq -e '.five_pct' "$usage_cache" >/dev/null 2>&1; th
   week_pct=$(jq -r '.week_pct // 0' "$usage_cache" 2>/dev/null)
   week_reset=$(jq -r '.week_reset // 0' "$usage_cache" 2>/dev/null)
   quota_line=$(printf "%b\033[38;5;240m | \033[0m%b" \
-    "$(quota_cell "5h" "$five_pct" "$five_reset")" \
-    "$(quota_cell "wk" "$week_pct" "$week_reset")")
+    "$(quota_cell "5h" "$five_pct" "$five_reset" 3600 10800)" \
+    "$(quota_cell "wk" "$week_pct" "$week_reset" 86400 259200)")
 else
   quota_line="\033[37m5h \033[0m\033[38;5;240mN/A\033[0m\033[38;5;240m | \033[0m\033[37mwk \033[0m\033[38;5;240mN/A\033[0m"
 fi
