@@ -55,6 +55,90 @@ else
 fi
 ctx_section=$(printf "${ctx_color}%s%% (%s)\033[0m" "$pct" "$tokens_fmt")
 
+# ── Quota line: 5h + weekly usage from Anthropic OAuth usage API ──────────────
+# Renders from a cache file only (never blocks). When the cache is stale a
+# detached background curl refreshes it for the next render. Strictly read-only
+# on the credentials file — it never writes ~/.claude/.credentials.json.
+usage_cache="$HOME/.claude/.usage-cache.json"
+usage_cred="$HOME/.claude/.credentials.json"
+usage_ttl=60
+now=$(date +%s)
+
+# Trigger a detached refresh when the cache is missing or older than the TTL.
+cache_age=$((usage_ttl + 1))
+if [ -f "$usage_cache" ]; then
+  fetched_at=$(jq -r '.fetched_at // 0' "$usage_cache" 2>/dev/null)
+  cache_age=$((now - ${fetched_at:-0}))
+fi
+if [ "$cache_age" -gt "$usage_ttl" ] && [ -f "$usage_cred" ]; then
+  (
+    token=$(jq -r '.claudeAiOauth.accessToken // empty' "$usage_cred" 2>/dev/null)
+    [ -z "$token" ] && exit 0
+    resp=$(curl -s --max-time 5 \
+      -H "Authorization: Bearer $token" \
+      -H "anthropic-beta: oauth-2025-04-20" \
+      -H "Content-Type: application/json" \
+      "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
+    [ -z "$resp" ] && exit 0
+    echo "$resp" | jq -e '.five_hour' >/dev/null 2>&1 || exit 0
+    tmp="$usage_cache.$$"
+    echo "$resp" | jq --argjson t "$(date +%s)" '{
+      fetched_at: $t,
+      five_pct: ((.five_hour.utilization // 0) | floor),
+      five_reset: ((.five_hour.resets_at // "") | if . == "" then 0 else ((sub("\\..*"; "Z")) | (fromdateiso8601? // 0)) end),
+      week_pct: ((.seven_day.utilization // 0) | floor),
+      week_reset: ((.seven_day.resets_at // "") | if . == "" then 0 else ((sub("\\..*"; "Z")) | (fromdateiso8601? // 0)) end)
+    }' > "$tmp" 2>/dev/null && mv "$tmp" "$usage_cache" || rm -f "$tmp"
+  ) >/dev/null 2>&1 &
+fi
+
+# Format a reset countdown from an epoch target: "Nm" / "~Nh" / "~Nd".
+quota_reset() {
+  target=$1
+  [ -z "$target" ] || [ "$target" -le 0 ] 2>/dev/null && { printf ""; return; }
+  delta=$((target - now))
+  [ "$delta" -le 0 ] && { printf ""; return; }
+  if [ "$delta" -lt 3600 ]; then
+    printf "%dm" $((delta / 60))
+  elif [ "$delta" -lt 86400 ]; then
+    printf "~%dh" $((delta / 3600))
+  else
+    printf "~%dd" $((delta / 86400))
+  fi
+}
+
+# Pick a color by utilization: green <60, yellow 60-80, red >80.
+quota_color() {
+  p=$1
+  if [ "$p" -gt 80 ]; then printf "\033[1;31m"
+  elif [ "$p" -ge 60 ]; then printf "\033[1;33m"
+  else printf "\033[1;32m"; fi
+}
+
+# Build one "label pct% (reset)" cell.
+quota_cell() {
+  label=$1; pct=$2; reset_epoch=$3
+  col=$(quota_color "$pct")
+  r=$(quota_reset "$reset_epoch")
+  if [ -n "$r" ]; then
+    printf "\033[38;5;240m%s \033[0m${col}%s%%\033[0m \033[38;5;240m(%s)\033[0m" "$label" "$pct" "$r"
+  else
+    printf "\033[38;5;240m%s \033[0m${col}%s%%\033[0m" "$label" "$pct"
+  fi
+}
+
+if [ -f "$usage_cache" ] && jq -e '.five_pct' "$usage_cache" >/dev/null 2>&1; then
+  five_pct=$(jq -r '.five_pct // 0' "$usage_cache" 2>/dev/null)
+  five_reset=$(jq -r '.five_reset // 0' "$usage_cache" 2>/dev/null)
+  week_pct=$(jq -r '.week_pct // 0' "$usage_cache" 2>/dev/null)
+  week_reset=$(jq -r '.week_reset // 0' "$usage_cache" 2>/dev/null)
+  quota_line=$(printf "%b\033[38;5;240m | \033[0m%b" \
+    "$(quota_cell "5h" "$five_pct" "$five_reset")" \
+    "$(quota_cell "wk" "$week_pct" "$week_reset")")
+else
+  quota_line="\033[38;5;240m5h N/A | wk N/A\033[0m"
+fi
+
 # Assemble output: cwd | [git | S | U | A |] ctx% | model
 output=$(printf "\033[36m%s\033[0m" "$short_cwd")
 if [ -n "$git_section" ]; then
@@ -77,4 +161,4 @@ if [ -n "$model" ]; then
   fi
 fi
 
-printf "%b" "$output"
+printf "%b\n%b" "$output" "$quota_line"
