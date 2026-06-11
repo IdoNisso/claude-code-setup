@@ -164,6 +164,7 @@ if [ -n "$model" ]; then
     *haiku*) model_color="\033[92m" ;;
     *sonnet*) model_color="\033[93m" ;;
     *opus*) model_color="\033[91m" ;;
+    *fable*) model_color="\033[95m" ;;
     *) model_color="\033[38;5;240m" ;;
   esac
   output=$(printf "%s\033[38;5;240m | \033[0m${model_color}%s\033[0m" "$output" "$model")
