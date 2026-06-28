@@ -1,4 +1,7 @@
 {
+  "env": {
+    "ENABLE_TOOL_SEARCH ": "auto:5"
+  },
   "model": "opus",
   "statusLine": {
     "type": "command",
@@ -8,6 +11,7 @@
   "enabledPlugins": {},
   "extraKnownMarketplaces": {},
   "effortLevel": "medium",
+  "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true
 }
