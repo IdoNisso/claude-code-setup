@@ -28,6 +28,16 @@ chmod +x ~/.claude/statusline.sh
 
 The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `PATH`.
 
+## Plugins
+
+`settings.json` enables plugins via `enabledPlugins`. Currently:
+
+| Plugin | Marketplace | Purpose |
+|--------|-------------|---------|
+| `mattpocock-skills` | `claude-plugins-official` | Engineering/productivity skills (TDD, code review, diagnosing bugs, domain modeling, …) |
+
+Claude Code fetches enabled plugins from the marketplace on startup, so copying `settings.json` is enough on a new machine. To add or remove one, use `/plugin` and mirror the resulting `enabledPlugins` block back into this repo.
+
 ## Statusline
 
 `statusline.sh` reads Claude Code's status JSON from stdin and renders a single line:

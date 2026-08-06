@@ -8,7 +8,9 @@
     "command": "~/.claude/statusline.sh",
     "padding": 0
   },
-  "enabledPlugins": {},
+  "enabledPlugins": {
+    "mattpocock-skills@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {},
   "effortLevel": "medium",
   "remoteControlAtStartup": false,
