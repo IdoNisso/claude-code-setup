@@ -8,6 +8,31 @@
     "command": "~/.claude/statusline.sh",
     "padding": 0
   },
+  "permissions": {
+    "defaultMode": "auto",
+    "deny": [
+      "Bash(cat */.env*)",
+      "Bash(cat *.env*)",
+      "Bash(less */.env*)",
+      "Bash(less *.env*)",
+      "Bash(more */.env*)",
+      "Bash(more *.env*)",
+      "Bash(head */.env*)",
+      "Bash(head *.env*)",
+      "Bash(tail */.env*)",
+      "Bash(tail *.env*)",
+      "Bash(printenv *)",
+      "Bash(env)",
+      "Bash(env *)",
+      "Bash(set)",
+      "Bash(export -p *)",
+      "Bash(echo $*)",
+      "Read(*/.env*)",
+      "Read(*.env*)",
+      "Edit(*/.env*)",
+      "Edit(*.env*)"
+    ]
+  },
   "enabledPlugins": {
     "mattpocock-skills@claude-plugins-official": true
   },
