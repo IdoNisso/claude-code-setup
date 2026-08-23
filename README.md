@@ -9,6 +9,7 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 | `CLAUDE.md` | Global instructions (language, style, git conventions) |
 | `settings.json` | Claude Code settings (model, plugins, statusline) |
 | `statusline.sh` | Custom statusline script showing cwd, git branch/changes, context %, model, effort |
+| `skills/<name>/SKILL.md` | User-scope skills installed under `~/.claude/skills/` |
 
 ## Installation
 
@@ -24,6 +25,9 @@ cp settings.json ~/.claude/settings.json
 # Statusline
 cp statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
+
+# Skills (user-scope)
+cp -r skills/ ~/.claude/skills/
 ```
 
 The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `PATH`.
@@ -32,11 +36,19 @@ The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `
 
 `settings.json` enables plugins via `enabledPlugins`. Currently:
 
-| Plugin | Marketplace | Purpose |
-|--------|-------------|---------|
-| `mattpocock-skills` | `claude-plugins-official` | Engineering/productivity skills (TDD, code review, diagnosing bugs, domain modeling, …) |
+| Plugin | Marketplace | Purpose | Added |
+|--------|-------------|---------|-------|
+| `mattpocock-skills` | `claude-plugins-official` | Engineering/productivity skills (TDD, code review, diagnosing bugs, domain modeling, …) | 2026-08-06 |
 
 Claude Code fetches enabled plugins from the marketplace on startup, so copying `settings.json` is enough on a new machine. To add or remove one, use `/plugin` and mirror the resulting `enabledPlugins` block back into this repo.
+
+## Skills (user-scope)
+
+Files in `skills/` are installed to `~/.claude/skills/` and apply globally across all projects.
+
+| Skill | Source | Purpose | Added |
+|-------|--------|---------|-------|
+| `unslop` | [cursor/plugins](https://github.com/cursor/plugins/blob/main/pstack/skills/unslop/SKILL.md) | Remove AI writing patterns and add human voice | 2026-08-23 |
 
 ## Statusline
 
