@@ -61,7 +61,7 @@ Files in `skills/` are installed to `~/.claude/skills/` and apply globally acros
 - **cwd**: working directory, with `$HOME` shortened to `~`
 - **git**: branch name (green when clean, yellow when dirty) plus added/deleted line counts vs `HEAD`
 - **context**: percent of context window used (green ≤20%, yellow ≤60%, red above) with a humanized token count
-- **model**: display name, colored by family (Haiku/Sonnet/Opus)
+- **model**: display name, colored by family (Haiku/Sonnet/Opus/Fable)
 - **effort**: current effort level, when set
 - **5h / wk**: 5-hour and weekly account usage quotas. The `5h`/`wk` labels are white; the utilization percent is colored by level (green <60%, yellow 60–80%, red >80%); the reset countdown (`Nm` / `~Nh` / `~Nd`) is colored by time remaining (5h window: green ≥3h, yellow ≥1h, red below; weekly: green ≥3d, yellow ≥1d, red below).
 
