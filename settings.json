@@ -1,6 +1,6 @@
 {
   "env": {
-    "ENABLE_TOOL_SEARCH ": "auto:5"
+    "ENABLE_TOOL_SEARCH": "auto:5"
   },
   "model": "claude-opus-5-5[1m]",
   "statusLine": {
