@@ -36,8 +36,6 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 
 Both `pull` and `install` overwrite without asking, so run `./sync.sh` first to see what will change.
 
-The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `PATH`.
-
 ## Plugins
 
 `settings.json` enables plugins via `enabledPlugins`. Currently:
@@ -58,7 +56,7 @@ Files in `home/skills/` are installed to `~/.claude/skills/` and apply globally 
 
 ## Secrets protection
 
-`settings.json` denies reading `.env` files and common credential paths (`~/.ssh`, `~/.aws`, `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.claude/.credentials.json`) through the Read and Edit tools, and denies commands that dump the whole environment (`env`, `printenv`, `set`, `export -p`).
+`settings.json` denies reading or editing `.env` files and reading common credential paths (`~/.ssh`, `~/.aws`, `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.claude/.credentials.json`), and denies commands that dump the whole environment (`env`, `printenv`, `set`, `export -p`).
 
 Bash deny rules only match command prefixes, so `grep . .env` or `python -c` would slip past them. The `PreToolUse` hook below covers those cases by inspecting the full command.
 
@@ -82,6 +80,8 @@ The hook is a pattern match, not a sandbox, so a determined command can still ge
 - **model**: display name, colored by family (Haiku/Sonnet/Opus/Fable)
 - **effort**: current effort level, when set
 - **5h / wk**: 5-hour and weekly account usage quotas. The `5h`/`wk` labels are white; the utilization percent is colored by level (green <60%, yellow 60–80%, red >80%); the reset countdown (`Nm` / `~Nh` / `~Nd`) is colored by time remaining (5h window: green ≥3h, yellow ≥1h, red below; weekly: green ≥3d, yellow ≥1d, red below).
+
+The script is POSIX shell and requires `jq`, `git`, and `curl` on `PATH`.
 
 The git and effort sections are omitted when not applicable (e.g. outside a repo, or no effort level set).
 
