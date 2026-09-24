@@ -4,31 +4,35 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 
 ## Files
 
+`home/` mirrors `~/.claude/`: each tracked file at `home/<path>` installs to `~/.claude/<path>`.
+
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Global instructions (language, style, git conventions) |
-| `settings.json` | Claude Code settings (model, plugins, statusline) |
-| `statusline.sh` | Custom statusline script showing cwd, git branch/changes, context %, model, effort |
-| `skills/<name>/SKILL.md` | User-scope skills installed under `~/.claude/skills/` |
+| `home/CLAUDE.md` | Global instructions (language, style, git conventions) |
+| `home/settings.json` | Claude Code settings (model, permissions, plugins, statusline) |
+| `home/statusline.sh` | Custom statusline script showing cwd, git branch/changes, context %, model, effort |
+| `home/skills/<name>/SKILL.md` | User-scope skills |
+| `sync.sh` | Compares and copies files between `home/` and `~/.claude/` |
 
 ## Installation
 
-All files live under `~/.claude/`:
+```bash
+./sync.sh install   # copy home/ into ~/.claude/
+```
+
+`sync.sh` targets `$CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude/`.
+
+## Keeping in sync
+
+`/model`, `/config`, and `/plugin` write to `~/.claude/settings.json` directly, so the installed copy drifts from the repo over time.
 
 ```bash
-# Global instructions
-cp CLAUDE.md ~/.claude/CLAUDE.md
-
-# Settings
-cp settings.json ~/.claude/settings.json
-
-# Statusline
-cp statusline.sh ~/.claude/statusline.sh
-chmod +x ~/.claude/statusline.sh
-
-# Skills (user-scope)
-cp -r skills/ ~/.claude/skills/
+./sync.sh           # show a diff for every file that differs (exit 1 on drift)
+./sync.sh pull      # copy installed files back into home/, then review and commit
+./sync.sh install   # overwrite installed files with the repo versions
 ```
+
+Both `pull` and `install` overwrite without asking, so run `./sync.sh` first to see what will change.
 
 The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `PATH`.
 
@@ -40,11 +44,11 @@ The statusline is a POSIX shell script and requires `jq`, `git`, and `curl` on `
 |--------|-------------|---------|-------|
 | `mattpocock-skills` | `claude-plugins-official` | Engineering/productivity skills (TDD, code review, diagnosing bugs, domain modeling, …) | 2026-08-06 |
 
-Claude Code fetches enabled plugins from the marketplace on startup, so copying `settings.json` is enough on a new machine. To add or remove one, use `/plugin` and mirror the resulting `enabledPlugins` block back into this repo.
+Claude Code fetches enabled plugins from the marketplace on startup, so installing `settings.json` is enough on a new machine. To add or remove one, use `/plugin`, then `./sync.sh pull` and commit.
 
 ## Skills (user-scope)
 
-Files in `skills/` are installed to `~/.claude/skills/` and apply globally across all projects.
+Files in `home/skills/` are installed to `~/.claude/skills/` and apply globally across all projects.
 
 | Skill | Source | Purpose | Added |
 |-------|--------|---------|-------|
@@ -52,7 +56,7 @@ Files in `skills/` are installed to `~/.claude/skills/` and apply globally acros
 
 ## Statusline
 
-`statusline.sh` reads Claude Code's status JSON from stdin and renders a single line:
+`home/statusline.sh` reads Claude Code's status JSON from stdin and renders a single line:
 
 ```
 <cwd> | <branch> | +<additions> -<deletions> | <context%> (<tokens>) | <model> | <effort> | 5h <pct>% (<reset>) | wk <pct>% (<reset>)
