@@ -26,7 +26,6 @@
       "Bash(env *)",
       "Bash(set)",
       "Bash(export -p *)",
-      "Bash(echo $*)",
       "Read(*/.env*)",
       "Read(*.env*)",
       "Edit(*/.env*)",
