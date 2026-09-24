@@ -9,9 +9,10 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 | File | Purpose |
 |------|---------|
 | `home/CLAUDE.md` | Global instructions (language, style, git conventions) |
-| `home/settings.json` | Claude Code settings (model, permissions, plugins, statusline) |
+| `home/settings.json` | Claude Code settings (model, permissions, hooks, plugins, statusline) |
 | `home/statusline.sh` | Custom statusline script showing cwd, git branch/changes, context %, model, effort |
 | `home/skills/<name>/SKILL.md` | User-scope skills |
+| `home/hooks/*.sh` | Hook scripts referenced from `settings.json` |
 | `sync.sh` | Compares and copies files between `home/` and `~/.claude/` |
 | `CLAUDE.md` | Instructions for working on this repo |
 
@@ -54,6 +55,18 @@ Files in `home/skills/` are installed to `~/.claude/skills/` and apply globally 
 | Skill | Source | Purpose | Added |
 |-------|--------|---------|-------|
 | `unslop` | [cursor/plugins](https://github.com/cursor/plugins/blob/main/pstack/skills/unslop/SKILL.md) | Remove AI writing patterns and add human voice | 2026-08-23 |
+
+## Secrets protection
+
+`settings.json` denies reading `.env` files and common credential paths (`~/.ssh`, `~/.aws`, `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.claude/.credentials.json`) through the Read and Edit tools, and denies commands that dump the whole environment (`env`, `printenv`, `set`, `export -p`).
+
+Bash deny rules only match command prefixes, so `grep . .env` or `python -c` would slip past them. The `PreToolUse` hook below covers those cases by inspecting the full command.
+
+| Hook | Event | Purpose | Added |
+|------|-------|---------|-------|
+| `block-secrets.sh` | `PreToolUse` (Bash) | Blocks commands that reference `.env` files or credential paths, run `gh auth token`, or `echo`/`printf` variables named like `*TOKEN*`, `*SECRET*`, `*KEY*`, `*PASSWORD*`, `*AUTH*` | 2026-09-24 |
+
+The hook is a pattern match, not a sandbox, so a determined command can still get around it. It requires `jq`.
 
 ## Statusline
 
