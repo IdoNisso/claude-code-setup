@@ -13,6 +13,7 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 | `home/statusline.sh` | Custom statusline script showing cwd, git branch/changes, context %, model, effort |
 | `home/skills/<name>/SKILL.md` | User-scope skills |
 | `sync.sh` | Compares and copies files between `home/` and `~/.claude/` |
+| `CLAUDE.md` | Instructions for working on this repo |
 
 ## Installation
 
