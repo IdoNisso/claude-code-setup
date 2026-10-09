@@ -132,23 +132,137 @@ describe('visibility', () => {
     expect([...open]).toEqual([PANE])
   })
 
-  test('sets it with true or false', async ($, on) => {
+  test('sets it with show or hide', async ($, on) => {
     const { open } = stubEngine(on)
     await startSession($)
     await mountBand($, true)
-    await runCommand($, 'false')
-    await runCommand($, 'false')
+    await runCommand($, 'hide')
+    await runCommand($, 'hide')
     expect([...open]).toEqual([])
-    await runCommand($, 'true')
+    await runCommand($, 'show')
     expect([...open]).toEqual([PANE])
   })
 
-  test('rejects other arguments', async ($, on) => {
+  test('answers other arguments with usage', async ($, on) => {
     const { open } = stubEngine(on)
     await startSession($)
     await mountBand($, true)
-    expect((await runCommand($, 'maybe')).text).toBe('Usage: /mods-pane [true|false]')
+    for (const arg of ['maybe', 'true']) {
+      const { text } = await runCommand($, arg)
+      expect(text).toStartWith(`Unknown argument "${arg}".`)
+      expect(text).toContain('/mods-pane remove <mod>')
+    }
+    expect((await runCommand($, 'help')).text).toStartWith('Usage: /mods-pane')
     expect([...open]).toEqual([PANE])
+  })
+})
+
+const mountPane = ($: Engine) =>
+  $.ui.mount({
+    plugin: 'mods-pane',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: PANE,
+    props: { bodyColumns: 80 } as never,
+  })
+
+const headers = async ($: Engine) => {
+  const pane = await mountPane($)
+  const found = await pane.findAll({ type: 'Text', text: /^[●○] / })
+  await pane.unmount()
+  return found.map(header => header.text.split(' ')[1])
+}
+
+describe('customizing', () => {
+  test('removes and adds sections by name or half a name', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    expect((await runCommand($, 'remove secrets agent-links')).text).toBe('Removed block-secrets, agent-links.')
+    expect(await headers($)).toEqual(['sync-drift', 'commit-lint'])
+    await runCommand($, 'add links')
+    expect(await headers($)).toEqual(['sync-drift', 'commit-lint', 'agent-links'])
+  })
+
+  test('names the mods it does not know', async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    expect((await runCommand($, 'remove secrets nope')).text).toStartWith('Unknown mod: nope.')
+    expect((await runCommand($, 'remove')).text).toStartWith('Name at least one mod.')
+    expect((await runCommand($, 'list')).text).not.toContain('removed')
+  })
+
+  test('says so when every section is removed', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    await runCommand($, 'remove drift secrets commit links')
+    expect(await (await mountPane($)).find({ text: /Every mod is removed/ })).toBeDefined()
+  })
+
+  test('puts the named mods first and restores the default', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    expect((await runCommand($, 'order agent-links commit')).text).toBe(
+      'Order: agent-links, commit-lint, sync-drift, block-secrets.',
+    )
+    expect(await headers($)).toEqual(['agent-links', 'commit-lint', 'sync-drift', 'block-secrets'])
+    await runCommand($, 'order')
+    expect(await headers($)).toEqual(['sync-drift', 'block-secrets', 'commit-lint', 'agent-links'])
+  })
+
+  test('limits the entries per section', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    expect((await runCommand($, 'recent 0')).text).toStartWith('Give a whole number from 1 to 20')
+    expect((await runCommand($, 'recent 1')).text).toBe('Showing up to 1 entry per section.')
+  })
+
+  test('keeps its settings for the next session', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    await runCommand($, 'remove secrets')
+    await runCommand($, 'order links')
+    await runCommand($, 'recent 2')
+    await startSession($)
+    expect(await headers($)).toEqual(['agent-links', 'sync-drift', 'commit-lint'])
+    expect((await runCommand($, 'list')).text).toContain('2 entries per section')
+  })
+
+  test('restores its settings from the last session', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on, { removed: ['commit-lint', 'gone-mod'], order: ['agent-links', 'gone-mod'], recent: 99 })
+    await startSession($)
+    expect(await headers($)).toEqual(['agent-links', 'sync-drift', 'block-secrets'])
+    expect((await runCommand($, 'list')).text).toContain('3 entries per section')
+  })
+
+  test('lists every mod with its status', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    await runCommand($, 'remove commit')
+    const lines = (await runCommand($, 'list')).text.split('\n')
+    expect(lines[0]).toBe('Mods pane hidden, 3 entries per section')
+    expect(lines.slice(1)).toEqual([
+      expect.stringMatching(/^● sync-drift +shown +2 changed$/),
+      expect.stringMatching(/^● block-secrets +shown +1 call blocked$/),
+      expect.stringMatching(/^● commit-lint +removed +1 commit blocked$/),
+      expect.stringMatching(/^● agent-links +shown +waiting on brain-55$/),
+    ])
+  })
+
+  test('asks the named mods, or all, to reset', async ($, on) => {
+    stubEngine(on)
+    const requests: unknown[] = []
+    on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, (_$, e, next) => {
+      requests.push(e.value)
+      return next(e)
+    })
+    await startSession($)
+    expect((await runCommand($, 'reset secrets')).text).toBe('Asked block-secrets to reset.')
+    await runCommand($, 'reset all')
+    expect((await runCommand($, 'reset')).text).toStartWith('Name a mod or "all".')
+    expect(requests).toEqual([
+      { mods: ['block-secrets'], at: expect.any(Number) },
+      { mods: ['sync-drift', 'block-secrets', 'commit-lint', 'agent-links'], at: expect.any(Number) },
+    ])
   })
 })
 
@@ -219,7 +333,7 @@ describe('drawing', () => {
       const { clock } = stubEngine(on)
       await clock.set(6_500)
       await startSession($)
-      await runCommand($, 'false')
+      await runCommand($, 'hide')
       const band = await $.ui.mount({
         plugin: 'mods-pane',
         surface,
