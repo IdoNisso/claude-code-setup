@@ -1,7 +1,14 @@
+import { atom, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
+
+import type { CommitBlock } from '../types'
 
 const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore', 'perf']
 const MAX_SUBJECT_LENGTH = 50
+
+const MAX_BLOCKS = 50
+
+const blocks = atom({ plugin: 'commit-lint', key: 'blocks' } as const, [])
 
 const GIT_COMMIT = /\bgit(?:\s+-[Cc]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+commit\b/
 const HEREDOC = /<<-?\s*['"]?(\w+)['"]?\n([\s\S]*?)\n\s*\1\b/
@@ -41,8 +48,10 @@ const subjectProblems = (subject: string): string[] => {
   return problems
 }
 
-const block = ($: EngineInterface, subject: string, problems: string[]) => {
+const block = async ($: EngineInterface, subject: string, problems: string[]) => {
   $.ui.toast(`commit-lint: blocked commit "${subject}"`)
+  const entry: CommitBlock = { subject, problems, at: await $.clock.now() }
+  await update($, blocks, list => [...list, entry].slice(-MAX_BLOCKS)).catch(() => {})
   return {
     deny: `Blocked by commit-lint: the subject "${subject}" ${problems.join('; ')}. Rewrite the subject and commit again.`,
   }

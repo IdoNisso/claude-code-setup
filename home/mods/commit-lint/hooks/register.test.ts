@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
 
@@ -6,6 +6,7 @@ const toasts: string[] = []
 
 const stubEngine = (on: On) => {
   toasts.length = 0
+  mock.clock(on)
   on('tool.call', () => ({ result: 'ran' }) as never)
   on('ui.toast', (_$, e) => {
     toasts.push(e.text)
@@ -63,4 +64,20 @@ describe('allowed commands', () => {
       expect(toasts).toEqual([])
     })
   }
+})
+
+describe('published blocks', () => {
+  test('records each blocked commit for other mods to read', async ($, on) => {
+    stubEngine(on)
+    let published: { subject: string; problems: string[] }[] = []
+    on('state.set', { plugin: 'commit-lint', key: 'blocks' }, (_$, e, next) => {
+      published = e.value
+      return next(e)
+    })
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m "fix: added a check."' })
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m "fix: add a check"' })
+    expect(published).toHaveLength(1)
+    expect(published[0]?.subject).toBe('fix: added a check.')
+    expect(published[0]?.problems).toHaveLength(2)
+  })
 })

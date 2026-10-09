@@ -1,5 +1,6 @@
 {
   "name": "commit-lint",
-  "version": "0.1.0",
-  "description": "Block git commits whose subject breaks the conventional commit format"
+  "version": "0.2.0",
+  "description": "Block git commits whose subject breaks the conventional commit format",
+  "types": "./types/index.d.ts"
 }
