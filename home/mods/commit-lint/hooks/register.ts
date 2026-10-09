@@ -1,6 +1,7 @@
 import { atom, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
+import type { ResetRequest } from '../../mods-pane/types'
 import type { CommitBlock } from '../types'
 
 const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore', 'perf']
@@ -57,10 +58,7 @@ const block = async ($: EngineInterface, subject: string, problems: string[]) =>
   }
 }
 
-const isResetFor = (request: unknown, name: string) => {
-  const mods = (request as { mods?: unknown } | null)?.mods
-  return Array.isArray(mods) && mods.includes(name)
-}
+const isResetFor = (request: ResetRequest | null) => request?.mods.includes('commit-lint') === true
 
 export const register: Register = on => {
   on('tool.call', { tool: 'Bash' }, ($, e, next) => {
@@ -72,7 +70,7 @@ export const register: Register = on => {
 
   on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
     const set = await next(e)
-    if (isResetFor(e.value, 'commit-lint')) await update($, blocks, () => []).catch(() => {})
+    if (isResetFor(e.value)) await update($, blocks, () => []).catch(() => {})
     return set
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 }

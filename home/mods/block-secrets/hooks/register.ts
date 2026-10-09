@@ -1,6 +1,7 @@
 import { atom, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
+import type { ResetRequest } from '../../mods-pane/types'
 import type { SecretBlock } from '../types'
 
 type Rule = { pattern: RegExp; reason: string }
@@ -42,10 +43,7 @@ const block = async ($: EngineInterface, tool: string, reason: string) => {
 
 const GUARD_FAILED = { deny: 'block-secrets: its guard failed.' }
 
-const isResetFor = (request: unknown, name: string) => {
-  const mods = (request as { mods?: unknown } | null)?.mods
-  return Array.isArray(mods) && mods.includes(name)
-}
+const isResetFor = (request: ResetRequest | null) => request?.mods.includes('block-secrets') === true
 
 export const register: Register = on => {
   on('tool.call', { tool: 'Bash' }, ($, e, next) => {
@@ -64,7 +62,7 @@ export const register: Register = on => {
 
   on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
     const set = await next(e)
-    if (isResetFor(e.value, 'block-secrets')) await update($, blocks, () => []).catch(() => {})
+    if (isResetFor(e.value)) await update($, blocks, () => []).catch(() => {})
     return set
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 }

@@ -1,6 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 
+import type { ResetRequest } from '../../mods-pane/types'
+
 const CHECK_INTERVAL_MS = 5 * 60_000
 
 const drift = atom({ plugin: 'sync-drift', key: 'drift' } as const, null)
@@ -47,10 +49,7 @@ const check = async ($: EngineInterface, options: PluginOptions) => {
   }
 }
 
-const isResetFor = (request: unknown, name: string) => {
-  const mods = (request as { mods?: unknown } | null)?.mods
-  return Array.isArray(mods) && mods.includes(name)
-}
+const isResetFor = (request: ResetRequest | null) => request?.mods.includes('sync-drift') === true
 
 export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
@@ -68,7 +67,7 @@ export const register: Register = (on, options) => {
 
   on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
     const set = await next(e)
-    if (isResetFor(e.value, 'sync-drift')) {
+    if (isResetFor(e.value)) {
       await update($, drift, () => null).catch(() => {})
       $.clock.after(0, () => void check($, options))
     }
