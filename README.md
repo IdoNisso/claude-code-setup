@@ -9,10 +9,10 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 | File | Purpose |
 |------|---------|
 | `home/CLAUDE.md` | Global instructions (language, style, git conventions) |
-| `home/settings.json` | Claude Code settings (model, permissions, hooks, plugins, statusline) |
+| `home/settings.json` | Claude Code settings (model, permissions, plugins, statusline) |
 | `home/statusline.sh` | Custom statusline script showing cwd, git branch/changes, context %, model, effort |
 | `home/skills/<name>/SKILL.md` | User-scope skills |
-| `home/hooks/*.sh` | Hook scripts referenced from `settings.json` |
+| `home/mods/<name>/` | Mods (hooks-module plugins) loaded via `CLAUDE_CODE_PLUGIN_DIRS` in `settings.json` |
 | `sync.sh` | Compares and copies files between `home/` and `~/.claude/` |
 | `CLAUDE.md` | Instructions for working on this repo |
 
@@ -58,13 +58,15 @@ Files in `home/skills/` are installed to `~/.claude/skills/` and apply globally 
 
 `settings.json` denies reading or editing `.env` files and reading common credential paths (`~/.ssh`, `~/.aws`, `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.claude/.credentials.json`), and denies commands that dump the whole environment (`env`, `printenv`, `set`, `export -p`).
 
-Bash deny rules only match command prefixes, so `grep . .env` or `python -c` would slip past them. The `PreToolUse` hook below covers those cases by inspecting the full command.
+Bash deny rules only match command prefixes, so `grep . .env` or `python -c` would slip past them. The `block-secrets` mod covers those cases by inspecting the full command.
 
-| Hook | Event | Purpose | Added |
-|------|-------|---------|-------|
-| `block-secrets.sh` | `PreToolUse` (Bash) | Blocks commands that reference `.env` files or credential paths, run `gh auth token`, or `echo`/`printf` variables named like `*TOKEN*`, `*SECRET*`, `*KEY*`, `*PASSWORD*`, `*AUTH*` | 2026-09-24 |
+| Mod | Event | Purpose | Added |
+|-----|-------|---------|-------|
+| `block-secrets` | `tool.call` (Bash, Read, Edit, Write, NotebookEdit) | Blocks commands that reference `.env` files or credential paths, run `gh auth token`, or `echo`/`printf` variables named like `*TOKEN*`, `*SECRET*`, `*KEY*`, `*PASSWORD*`, `*AUTH*`. Blocks file tools on the same paths. Shows a toast when it blocks a call. | 2026-10-09 |
 
-The hook is a pattern match, not a sandbox, so a determined command can still get around it. It requires `jq`.
+The mod is a pattern match, not a sandbox, so a determined command can still get around it. Run its tests with `claude plugin test home/mods/block-secrets`.
+
+`settings.json` loads it by listing `~/.claude/mods/block-secrets` in `CLAUDE_CODE_PLUGIN_DIRS`, a `:`-separated list. Add any new mod's folder there too.
 
 ## Statusline
 
