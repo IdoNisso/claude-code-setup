@@ -12,6 +12,14 @@ const hiddenAt = atom({ plugin: 'mods-pane', key: 'hiddenAt' } as const, 0)
 const secretBlocks = atom({ plugin: 'block-secrets', key: 'blocks' } as const, [])
 const commitBlocks = atom({ plugin: 'commit-lint', key: 'blocks' } as const, [])
 const drift = atom({ plugin: 'sync-drift', key: 'drift' } as const, null)
+const links = atom({ plugin: 'agent-links', key: 'links' } as const, [])
+
+const LINK_LABELS = {
+  'waiting-on-them': 'awaiting their reply',
+  'waiting-on-me': 'awaiting our reply',
+  watching: 'watching for idle',
+  settled: 'settled',
+} as const
 
 type Entry = { at: number; text: string }
 
@@ -28,6 +36,8 @@ const sections = async ($: EngineInterface): Promise<Section[]> => {
   const secrets = await read($, secretBlocks)
   const commits = await read($, commitBlocks)
   const current = await read($, drift)
+  const peers = await read($, links)
+  const waitingOn = peers.filter(link => link.state === 'waiting-on-them').map(link => link.peer)
   return [
     {
       name: 'block-secrets',
@@ -46,6 +56,20 @@ const sections = async ($: EngineInterface): Promise<Section[]> => {
       summary: current === null ? 'in sync' : current.summary,
       isAlert: current !== null,
       recent: current === null ? [] : [{ at: current.since, text: current.isError ? 'check failed' : 'drift found' }],
+    },
+    {
+      name: 'agent-links',
+      summary:
+        peers.length === 0
+          ? 'no peers'
+          : waitingOn.length > 0
+            ? `waiting on ${waitingOn.join(', ')}`
+            : `${plural(peers.length, 'peer')}, nothing pending`,
+      isAlert: peers.some(link => link.isOverdue),
+      recent: peers.map(link => ({
+        at: link.since,
+        text: `${link.peer} · ${link.place} · ${LINK_LABELS[link.state]} · ${link.peerStatus}`,
+      })),
     },
   ]
 }

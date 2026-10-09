@@ -70,6 +70,21 @@ const PUBLISHERS: Plugin[] = [
       return next(e)
     })
   }),
+  publisher('agent-links', on => {
+    on('session.start', async ($, e, next) => {
+      await $.state.set({ plugin: 'agent-links', key: 'links' }, [
+        {
+          peer: 'brain-55',
+          place: '~/repos/brain',
+          state: 'waiting-on-them',
+          since: 4_000,
+          isOverdue: true,
+          peerStatus: 'busy',
+        },
+      ])
+      return next(e)
+    })
+  }),
 ]
 
 describe('visibility', () => {
@@ -156,6 +171,8 @@ describe('drawing', () => {
       expect(await ui.find({ text: /Bash call prints a GitHub token/ })).toBeDefined()
       expect(await ui.find({ text: /commit-lint.*1 commit blocked/ })).toBeDefined()
       expect(await ui.find({ text: /sync-drift.*2 changed/ })).toBeDefined()
+      expect(await ui.find({ text: /agent-links.*waiting on brain-55/ })).toBeDefined()
+      expect(await ui.find({ text: /brain-55 · ~\/repos\/brain · awaiting their reply · busy/ })).toBeDefined()
     })
 
     test(`band counts events since the pane was hidden on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
