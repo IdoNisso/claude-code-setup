@@ -1,0 +1,6 @@
+{
+  "name": "prototype-mods-ui",
+  "version": "0.1.0",
+  "description": "PROTOTYPE: compare TUI shapes for the block-secrets, commit-lint and sync-drift mods",
+  "types": "./types/index.d.ts"
+}
