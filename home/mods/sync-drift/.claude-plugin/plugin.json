@@ -1,0 +1,13 @@
+{
+  "name": "sync-drift",
+  "version": "0.1.0",
+  "description": "Show a status line entry when ~/.claude drifts from the claude-code-setup repo",
+  "userConfig": {
+    "repoPath": {
+      "type": "string",
+      "title": "Repo path",
+      "description": "The claude-code-setup checkout whose sync.sh is run (~ is expanded)",
+      "default": "~/repos/IdoNisso/claude-code-setup"
+    }
+  }
+}

@@ -72,6 +72,7 @@ Mods are hooks-module plugins in `home/mods/<name>/`. `settings.json` loads each
 |-----|-------|---------|-------|
 | `block-secrets` | `tool.call` (Bash, Read, Edit, Write, NotebookEdit) | Blocks commands that reference `.env` files or credential paths, run `gh auth token`, or `echo`/`printf` variables named like `*TOKEN*`, `*SECRET*`, `*KEY*`, `*PASSWORD*`, `*AUTH*`. Blocks file tools on the same paths. Shows a toast when it blocks a call. | 2026-10-09 |
 | `commit-lint` | `tool.call` (Bash) | Blocks `git commit` when the subject breaks the conventional format in `home/CLAUDE.md`: unknown type, over 50 characters, trailing period, or a first word ending in `-ed`/`-ing`. Reads the subject from `-m`/`--message` or a heredoc; commits without a message (editor, `--no-edit`) pass. Shows a toast when it blocks. | 2026-10-09 |
+| `sync-drift` | `session.start`, `turn.complete` | Runs `./sync.sh status` at session start, after every turn, and every 5 minutes, and shows a status line entry like `~/.claude drift: 2 changed, 1 not in repo` until the drift is resolved. Toasts when the drift first appears or changes. The repo path is the `repoPath` option (default `~/repos/IdoNisso/claude-code-setup`), changeable in `/config`. | 2026-10-09 |
 
 Check a mod with `claude plugin validate home/mods/<name>` and run its tests with `claude plugin test home/mods/<name>`.
 
