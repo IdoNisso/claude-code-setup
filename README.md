@@ -64,19 +64,22 @@ Files in `home/skills/` are installed to `~/.claude/skills/` and apply globally 
 |-------|--------|---------|-------|
 | `unslop` | [cursor/plugins](https://github.com/cursor/plugins/blob/main/pstack/skills/unslop/SKILL.md) | Remove AI writing patterns and add human voice | 2026-08-23 |
 
-## Secrets protection
+## Mods
 
-`settings.json` denies reading or editing `.env` files and reading common credential paths (`~/.ssh`, `~/.aws`, `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.claude/.credentials.json`), and denies commands that dump the whole environment (`env`, `printenv`, `set`, `export -p`).
-
-Bash deny rules only match command prefixes, so `grep . .env` or `python -c` would slip past them. The `block-secrets` mod covers those cases by inspecting the full command.
+Mods are hooks-module plugins in `home/mods/<name>/`. `settings.json` loads each one by listing its installed folder (`~/.claude/mods/<name>`) in `CLAUDE_CODE_PLUGIN_DIRS`, a `:`-separated list. Add any new mod's folder there too.
 
 | Mod | Event | Purpose | Added |
 |-----|-------|---------|-------|
 | `block-secrets` | `tool.call` (Bash, Read, Edit, Write, NotebookEdit) | Blocks commands that reference `.env` files or credential paths, run `gh auth token`, or `echo`/`printf` variables named like `*TOKEN*`, `*SECRET*`, `*KEY*`, `*PASSWORD*`, `*AUTH*`. Blocks file tools on the same paths. Shows a toast when it blocks a call. | 2026-10-09 |
+| `commit-lint` | `tool.call` (Bash) | Blocks `git commit` when the subject breaks the conventional format in `home/CLAUDE.md`: unknown type, over 50 characters, trailing period, or a first word ending in `-ed`/`-ing`. Reads the subject from `-m`/`--message` or a heredoc; commits without a message (editor, `--no-edit`) pass. Shows a toast when it blocks. | 2026-10-09 |
 
-The mod is a pattern match, not a sandbox, so a determined command can still get around it. Run its tests with `claude plugin test home/mods/block-secrets`.
+Check a mod with `claude plugin validate home/mods/<name>` and run its tests with `claude plugin test home/mods/<name>`.
 
-`settings.json` loads it by listing `~/.claude/mods/block-secrets` in `CLAUDE_CODE_PLUGIN_DIRS`, a `:`-separated list. Add any new mod's folder there too.
+## Secrets protection
+
+`settings.json` denies reading or editing `.env` files and reading common credential paths (`~/.ssh`, `~/.aws`, `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.claude/.credentials.json`), and denies commands that dump the whole environment (`env`, `printenv`, `set`, `export -p`).
+
+Bash deny rules only match command prefixes, so `grep . .env` or `python -c` would slip past them. The [`block-secrets` mod](#mods) covers those cases by inspecting the full command. It is a pattern match, not a sandbox, so a determined command can still get around it.
 
 ## Statusline
 
