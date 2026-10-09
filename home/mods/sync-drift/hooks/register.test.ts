@@ -56,14 +56,14 @@ test('runs sync.sh from the configured repo on session start', async ($, on) => 
   expect(toasts).toEqual([])
 })
 
-test('publishes a drift summary and toasts once', async ($, on) => {
+test('publishes a drift summary once, without a toast', async ($, on) => {
   const { clock, published, toasts } = setup(on, [DRIFTED])
   await startSession($)
   await clock.settle()
   await clock.advance(5 * 60_000)
   expect(published.map(one => one?.summary)).toEqual(['2 changed, 1 not in repo'])
   expect(published[0]?.isError).toBe(false)
-  expect(toasts).toHaveLength(1)
+  expect(toasts).toEqual([])
 })
 
 test('clears the drift once back in sync', async ($, on) => {

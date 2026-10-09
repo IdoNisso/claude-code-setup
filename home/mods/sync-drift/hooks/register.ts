@@ -26,11 +26,10 @@ const repoPath = async ($: EngineInterface, options: PluginOptions) => {
   return `${home}${path.slice(1)}`
 }
 
-const publish = async ($: EngineInterface, summary: string | undefined, isError: boolean, toast: string) => {
+const publish = async ($: EngineInterface, summary: string | undefined, isError: boolean) => {
   const before = await read($, drift)
   if (summary === before?.summary) return
   if (summary === undefined) return update($, drift, () => null)
-  $.ui.toast(toast)
   const since = await $.clock.now()
   await update($, drift, () => ({ summary, isError, since }))
 }
@@ -39,13 +38,12 @@ const check = async ($: EngineInterface, options: PluginOptions) => {
   const repo = await repoPath($, options)
   try {
     const { exitCode, stdout } = await $.process.run(['sh', `${repo}/sync.sh`, 'status'])
-    if (exitCode === 0) return await publish($, undefined, false, '')
+    if (exitCode === 0) return await publish($, undefined, false)
     const summary = exitCode === 1 ? summarize(stdout) : ''
     if (summary === '') throw new Error(`sync.sh exited ${exitCode}`)
-    await publish($, summary, false, '~/.claude has drifted from the repo. Run ./sync.sh to review.')
+    await publish($, summary, false)
   } catch {
-    const message = `cannot run ${repo}/sync.sh`
-    await publish($, message, true, `sync-drift: ${message}`)
+    await publish($, `cannot run ${repo}/sync.sh`, true)
   }
 }
 
