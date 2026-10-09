@@ -259,7 +259,7 @@ describe('customizing', () => {
     stubEngine(on)
     await startSession($)
     await runCommand($, 'remove commit')
-    const lines = (await runCommand($, 'list')).text.split('\n')
+    const lines = ((await runCommand($, 'list')).text ?? '').split('\n')
     expect(lines[0]).toBe('Mods pane hidden, 3 entries per section')
     expect(lines.slice(1)).toEqual([
       expect.stringMatching(/^● sync-drift +shown +2 changed$/),
