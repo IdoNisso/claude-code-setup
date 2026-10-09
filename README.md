@@ -36,6 +36,8 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 
 Both `pull` and `install` overwrite without asking, so run `./sync.sh` first to see what will change.
 
+`sync.sh` never deletes anything. `./sync.sh` lists entries in `~/.claude/hooks`, `~/.claude/mods`, and `~/.claude/skills` that the repo does not track as `not in repo:`. Typically these are left over from a hook, mod, or skill that was removed from the repo. Delete them by hand, or add them to `home/` if they should be kept. `~/.claude/skills/synced` is managed by Claude Code and is ignored.
+
 ## Plugins
 
 `settings.json` enables plugins via `enabledPlugins`. Currently:

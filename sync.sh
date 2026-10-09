@@ -9,7 +9,8 @@ dest="$HOME/.claude"
 usage() {
   cat >&2 <<EOF
 usage: $0 [status|install|pull]
-  status   show differences between home/ and $dest (default)
+  status   show differences between home/ and $dest, and entries in
+           $dest/{$(echo "$managed_dirs" | tr ' ' ,)} the repo does not track (default)
   install  copy home/ files into $dest
   pull     copy $dest files back into home/
 EOF
@@ -18,6 +19,22 @@ EOF
 
 tracked_files() {
   git -C "$repo_dir" ls-files home | sed 's|^home/||'
+}
+
+# Directories whose entries this repo owns. skills/synced is managed by
+# Claude Code from the claude.ai account.
+managed_dirs="hooks mods skills"
+
+untracked_entries() {
+  tracked=$(tracked_files)
+  for dir in $managed_dirs; do
+    for path in "$dest/$dir"/* "$dest/$dir"/.[!.]*; do
+      [ -e "$path" ] || continue
+      entry="$dir/${path##*/}"
+      [ "$entry" = skills/synced ] && continue
+      printf '%s\n' "$tracked" | grep -qE "^$entry(/|\$)" || echo "$entry"
+    done
+  done
 }
 
 case "${1:-status}" in
@@ -30,6 +47,10 @@ case "${1:-status}" in
       elif ! diff -u --label "repo/$f" --label "installed/$f" "$src/$f" "$dest/$f"; then
         drift=1
       fi
+    done
+    for entry in $(untracked_entries); do
+      echo "not in repo: $entry"
+      drift=1
     done
     [ "$drift" -eq 0 ] && echo "in sync"
     exit "$drift"
