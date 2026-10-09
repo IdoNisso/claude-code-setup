@@ -17,6 +17,7 @@ const removed = atom({ plugin: 'mods-pane', key: 'removed' } as const, [])
 const order = atom({ plugin: 'mods-pane', key: 'order' } as const, MODS)
 const recent = atom({ plugin: 'mods-pane', key: 'recent' } as const, DEFAULT_RECENT)
 const resetRequest = atom({ plugin: 'mods-pane', key: 'resetRequest' } as const, null)
+const dismissRequest = atom({ plugin: 'mods-pane', key: 'dismissRequest' } as const, null)
 
 const secretBlocks = atom({ plugin: 'block-secrets', key: 'blocks' } as const, [])
 const commitBlocks = atom({ plugin: 'commit-lint', key: 'blocks' } as const, [])
@@ -41,7 +42,7 @@ const USAGE = [
   `Mods: ${MODS.join(', ')} (or a half of a name, like "secrets")`,
 ].join('\n')
 
-type Entry = { at: number; text: string }
+type Entry = { at: number; text: string; dismissId?: string }
 
 type Section = { name: ModName; summary: string; isAlert: boolean; recent: Entry[] }
 
@@ -90,6 +91,7 @@ const sections = async ($: EngineInterface): Promise<Section[]> => {
       isAlert: peers.some(link => link.isOverdue),
       recent: peers.map(link => ({
         at: link.since,
+        dismissId: link.peer,
         text: `${link.peer} · ${link.place} · ${LINK_LABELS[link.state]} · ${link.peerStatus}`,
       })),
     },
@@ -196,6 +198,11 @@ const requestReset = async ($: EngineInterface, args: string[]) => {
   const at = await $.clock.now()
   await update($, resetRequest, () => ({ mods, at }))
   return `Asked ${mods.join(', ')} to reset.`
+}
+
+const requestDismiss = async ($: EngineInterface, mod: ModName, entry: string) => {
+  const at = await $.clock.now()
+  await update($, dismissRequest, () => ({ mod, entry, at }))
 }
 
 const setOrder = async ($: EngineInterface, args: string[]) => {
@@ -321,6 +328,16 @@ export const register: Register = on => {
                   <Box flexGrow={1} flexShrink={1}>
                     <Text dimColor>{entry.text}</Text>
                   </Box>
+                  {entry.dismissId !== undefined && (
+                    <Box flexShrink={0} marginLeft={1}>
+                      <Button
+                        key={`dismiss:${section.name}:${entry.dismissId}`}
+                        plain
+                        label="×"
+                        onPress={() => requestDismiss($, section.name, entry.dismissId as string)}
+                      />
+                    </Box>
+                  )}
                 </Box>
               ))}
           </Box>

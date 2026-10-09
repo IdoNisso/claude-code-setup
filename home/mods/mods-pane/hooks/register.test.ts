@@ -287,6 +287,30 @@ describe('customizing', () => {
   })
 })
 
+describe('dismissing', () => {
+  for (const surface of ['terminal', 'desktop'] as const) {
+    test(`a link's button asks agent-links to dismiss it on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
+      stubEngine(on)
+      const requests: unknown[] = []
+      on('state.set', { plugin: 'mods-pane', key: 'dismissRequest' }, (_$, e, next) => {
+        requests.push(e.value)
+        return next(e)
+      })
+      await startSession($)
+      const ui = await $.ui.mount({
+        plugin: 'mods-pane',
+        surface,
+        component: 'Pane',
+        requestId: PANE,
+        props: { bodyColumns: 80 } as never,
+      })
+      expect(await ui.find({ key: 'dismiss:block-secrets:Bash' })).toBeUndefined()
+      await ui.press({ key: 'dismiss:agent-links:brain-55' } as never)
+      expect(requests).toEqual([{ mod: 'agent-links', entry: 'brain-55', at: expect.any(Number) }])
+    })
+  }
+})
+
 describe('drawing', () => {
   const surfaces = ['terminal', 'desktop'] as const
 

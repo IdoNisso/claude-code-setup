@@ -18,6 +18,8 @@ Mods live in `home/mods/<name>/` and install to `~/.claude/mods/<name>/`. A new 
 
 `/mods-pane reset` works through `mods-pane.resetRequest`, `{ mods, at }`: only a mod can write its own state, so each mod hooks `state.set` on that key, calls `next`, and clears its own state when its name is in `mods`. A new mod should do the same.
 
+A pane entry with a `dismissId` gets a `×` button that sets `mods-pane.dismissRequest`, `{ mod, entry, at }`, the same way. The owning mod hooks that key and drops the entry whose id is `entry` when `mod` is its name. `agent-links` does this with the peer name as the id.
+
 ## Removing things
 
 After removing a hook, mod, or skill from `home/`, its installed copy stays in `~/.claude/`. `./sync.sh` lists it as `not in repo:`. `./sync.sh install` asks before deleting it, and keeps it when run without a terminal, which includes from the Bash tool. In that case, ask the user to run `./sync.sh install` themselves.

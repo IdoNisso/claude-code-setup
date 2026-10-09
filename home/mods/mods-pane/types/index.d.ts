@@ -4,6 +4,8 @@ export type ModName = 'sync-drift' | 'block-secrets' | 'commit-lint' | 'agent-li
 
 export type ResetRequest = { mods: ModName[]; at: Timestamp }
 
+export type DismissRequest = { mod: ModName; entry: string; at: Timestamp }
+
 declare module 'claude-code' {
   interface PluginState {
     'mods-pane': {
@@ -13,6 +15,7 @@ declare module 'claude-code' {
       order: ModName[]
       recent: number
       resetRequest: ResetRequest | null
+      dismissRequest: DismissRequest | null
     }
   }
 }
