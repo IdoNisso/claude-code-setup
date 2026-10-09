@@ -139,7 +139,20 @@ describe('drawing', () => {
     })
   }
 
-  test('band stays empty while the pane is shown', async ($, on) => {
+  test('band shows drift while the pane is shown', { plugins: PUBLISHERS }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    const band = await $.ui.mount({
+      plugin: 'mods-pane',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { bodyColumns: 80, hasSurvey: false } as never,
+    })
+    expect(await band.find({ text: /~\/\.claude drift: 2 changed/ })).toBeDefined()
+    expect(await band.find({ text: /mods pane hidden/ })).toBeUndefined()
+  })
+
+  test('band stays empty while the pane is shown and nothing drifted', async ($, on) => {
     stubEngine(on)
     on('ui.render', () => ({ type: 'Box', props: {}, children: [] }) as never)
     await startSession($)

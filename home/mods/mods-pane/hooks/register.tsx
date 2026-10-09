@@ -136,15 +136,23 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey || !(await read($, isHidden))) return next(e)
+    const hidden = await read($, isHidden)
+    const current = await read($, drift)
+    if (e.props.hasSurvey || (!hidden && current === null)) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
-    const unseen = await unseenCount($)
+    const unseen = hidden ? await unseenCount($) : 0
     return (
       <Box width={e.props.bodyColumns} justifyContent="flex-end">
-        <Text dimColor>mods pane hidden</Text>
+        {current !== null && (
+          <Text color={current.isError ? 'error' : 'warning'}>
+            {current.isError ? `sync-drift: ${current.summary}` : `~/.claude drift: ${current.summary} · run ./sync.sh`}
+          </Text>
+        )}
+        {current !== null && hidden && <Text dimColor> │ </Text>}
+        {hidden && <Text dimColor>mods pane hidden</Text>}
         {unseen > 0 && <Text color="warning"> · {plural(unseen, 'new event')}</Text>}
-        <Text dimColor> · </Text>
-        <Button key="show" plain label="/mods-pane" onPress={() => show($)} />
+        {hidden && <Text dimColor> · </Text>}
+        {hidden && <Button key="show" plain label="/mods-pane" onPress={() => show($)} />}
       </Box>
     )
   })
