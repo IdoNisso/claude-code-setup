@@ -1,7 +1,8 @@
 {
   "name": "sync-drift",
-  "version": "0.1.0",
-  "description": "Show a status line entry when ~/.claude drifts from the claude-code-setup repo",
+  "version": "0.2.0",
+  "description": "Watch ~/.claude for drift from the claude-code-setup repo and publish it for the mods pane",
+  "types": "./types/index.d.ts",
   "userConfig": {
     "repoPath": {
       "type": "string",
