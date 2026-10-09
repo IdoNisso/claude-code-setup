@@ -217,6 +217,26 @@ describe('customizing', () => {
     expect((await runCommand($, 'recent')).text).toStartWith('Showing up to 1 entry per section.')
   })
 
+  const MANY_BLOCKS = publisher('block-secrets', on => {
+    on('session.start', async ($, e, next) => {
+      const blocks = [1, 2, 3, 4, 5, 6].map(n => ({ tool: 'Bash', reason: `reason ${n}`, at: n * 1_000 }))
+      await $.state.set({ plugin: 'block-secrets', key: 'blocks' }, blocks)
+      return next(e)
+    })
+  })
+
+  test('redraws the open pane with the new limit', { plugins: [MANY_BLOCKS] }, async ($, on) => {
+    stubEngine(on)
+    await startSession($)
+    const pane = await mountPane($)
+    const shown = async () => (await pane.findAll({ type: 'Text', text: /call reason \d$/ })).map(text => text.text.replace('Bash call ', ''))
+    expect(await shown()).toEqual(['reason 6', 'reason 5', 'reason 4'])
+    await runCommand($, 'recent 5')
+    expect(await shown()).toEqual(['reason 6', 'reason 5', 'reason 4', 'reason 3', 'reason 2'])
+    await runCommand($, 'recent 1')
+    expect(await shown()).toEqual(['reason 6'])
+  })
+
   test('keeps its settings for the next session', { plugins: PUBLISHERS }, async ($, on) => {
     stubEngine(on)
     await startSession($)
