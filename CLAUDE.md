@@ -14,7 +14,9 @@ This repo is the source of truth for the user's Claude Code config. `home/` mirr
 
 Mods live in `home/mods/<name>/` and install to `~/.claude/mods/<name>/`. A new mod loads only after its folder is added to `CLAUDE_CODE_PLUGIN_DIRS` in `home/settings.json` (a `:`-separated list). Run `claude plugin validate` and `claude plugin test` on the mod folder before committing.
 
-`mods-pane` draws what the other mods publish in `$.state`: `block-secrets.blocks`, `commit-lint.blocks`, `sync-drift.drift` and `agent-links.links`, each declared in that mod's `types/index.d.ts`. To show a new mod there, have it publish its own state the same way, list it under `dependencies` in `mods-pane`'s `plugin.json`, and add a section in `mods-pane`'s `sections`.
+`mods-pane` draws what the other mods publish in `$.state`: `block-secrets.blocks`, `commit-lint.blocks`, `sync-drift.drift` and `agent-links.links`, each declared in that mod's `types/index.d.ts`. To show a new mod there, have it publish its own state the same way, list it under `dependencies` in `mods-pane`'s `plugin.json`, add a section in `mods-pane`'s `sections`, and add its name to `ModName` in `mods-pane`'s `types/index.d.ts` and to `MODS` in its module.
+
+`/mods-pane reset` works through `mods-pane.resetRequest`, `{ mods, at }`: only a mod can write its own state, so each mod hooks `state.set` on that key, calls `next`, and clears its own state when its name is in `mods`. A new mod should do the same.
 
 ## Removing things
 
