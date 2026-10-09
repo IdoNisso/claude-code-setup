@@ -173,6 +173,13 @@ describe('drawing', () => {
       expect(await ui.find({ text: /sync-drift.*2 changed/ })).toBeDefined()
       expect(await ui.find({ text: /agent-links.*waiting on brain-55/ })).toBeDefined()
       expect(await ui.find({ text: /brain-55 · ~\/repos\/brain · awaiting their reply · busy/ })).toBeDefined()
+      const headers = await ui.findAll({ type: 'Text', text: /^[●○] / })
+      expect(headers.map(header => header.text.split(' ')[1])).toEqual([
+        'sync-drift',
+        'block-secrets',
+        'commit-lint',
+        'agent-links',
+      ])
     })
 
     test(`pane wraps long lines instead of truncating on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {

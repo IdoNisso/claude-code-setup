@@ -41,6 +41,12 @@ const sections = async ($: EngineInterface): Promise<Section[]> => {
   const waitingOn = peers.filter(link => link.state === 'waiting-on-them').map(link => link.peer)
   return [
     {
+      name: 'sync-drift',
+      summary: current === null ? 'in sync' : current.summary,
+      isAlert: current !== null,
+      recent: current === null ? [] : [{ at: current.since, text: current.isError ? 'check failed' : 'drift found' }],
+    },
+    {
       name: 'block-secrets',
       summary: `${plural(secrets.length, 'call')} blocked`,
       isAlert: secrets.length > 0,
@@ -51,12 +57,6 @@ const sections = async ($: EngineInterface): Promise<Section[]> => {
       summary: `${plural(commits.length, 'commit')} blocked`,
       isAlert: commits.length > 0,
       recent: commits.map(one => ({ at: one.at, text: `"${one.subject}": ${one.problems.join('; ')}` })),
-    },
-    {
-      name: 'sync-drift',
-      summary: current === null ? 'in sync' : current.summary,
-      isAlert: current !== null,
-      recent: current === null ? [] : [{ at: current.since, text: current.isError ? 'check failed' : 'drift found' }],
     },
     {
       name: 'agent-links',
