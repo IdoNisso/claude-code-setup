@@ -19,6 +19,20 @@ const MODS_PANE: Plugin = {
   },
 }
 
+const MODS_PANE_DISMISS: Plugin = {
+  name: 'mods-pane',
+  register: on => {
+    on('command.run', { command: 'dismiss' }, async ($, e) => {
+      const [mod, entry] = e.args.split(' ')
+      await $.state.set({ plugin: 'mods-pane', key: 'dismissRequest' } as never, { mod, entry, at: 1 } as never)
+      return { text: '' }
+    })
+  },
+}
+
+const requestDismiss = ($: Engine, mod: string, entry: string) =>
+  $.command.run({ command: 'dismiss', args: `${mod} ${entry}`, origin: { kind: 'composer' }, presentation: {} } as never)
+
 const requestReset = ($: Engine, mods: string) =>
   $.command.run({ command: 'reset', args: mods, origin: { kind: 'composer' }, presentation: {} } as never)
 
@@ -215,4 +229,20 @@ test('forgets earlier messages when the mods pane asks', { plugins: [MODS_PANE] 
   await clock.advance(1_000)
   await send($, PEER, 'still there?')
   expect(latest().map(link => link.state)).toEqual(['waiting-on-them'])
+})
+
+test('dismisses one link when the mods pane asks', { plugins: [MODS_PANE_DISMISS] }, async ($, on) => {
+  const { clock, writePeer, ownCard, latest } = setup(on)
+  writePeer(peerCard(clock.now()))
+  writePeer(peerCard(clock.now(), { sessionId: 's-other', name: 'other-1' }))
+  await startSession($, clock)
+  await send($, PEER, 'which schema?')
+  await send($, 'other-1', 'and you?')
+  await clock.advance(90_000)
+  expect(latest().map(link => link.peerStatus)).toEqual(['gone', 'gone'])
+  await requestDismiss($, 'agent-links', PEER)
+  expect(latest().map(link => link.peer)).toEqual(['other-1'])
+  expect(ownCard()?.dismissed).toEqual({ [PEER]: clock.now() })
+  await requestDismiss($, 'block-secrets', 'other-1')
+  expect(latest().map(link => link.peer)).toEqual(['other-1'])
 })

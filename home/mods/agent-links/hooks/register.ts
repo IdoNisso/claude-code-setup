@@ -22,6 +22,7 @@ type Card = {
   heartbeatAt: number
   sent: Record<string, Message>
   watching: Record<string, number>
+  dismissed: Record<string, number>
   clearedAt?: number
 }
 
@@ -87,15 +88,17 @@ const lastSaid = (mine: Message | undefined, theirs: Message | undefined) => {
 
 const heard = (self: Card, peer: Card) => (self.name === null ? undefined : peer.sent[self.name])
 
-const isAfterClear = (self: Card, at: number | undefined): at is number =>
-  at !== undefined && at > (self.clearedAt ?? -Infinity)
+const clearedAt = (self: Card, peer: string) => Math.max(self.clearedAt ?? -Infinity, self.dismissed[peer] ?? -Infinity)
 
-const sinceCleared = (self: Card, said: Message | undefined) => (isAfterClear(self, said?.at) ? said : undefined)
+const isAfterClear = (cleared: number, at: number | undefined): at is number => at !== undefined && at > cleared
+
+const sinceCleared = (cleared: number, said: Message | undefined) => (isAfterClear(cleared, said?.at) ? said : undefined)
 
 const linkTo = (self: Card, peer: Card & { name: string }, now: number, home: string): Link | undefined => {
-  const said = lastSaid(sinceCleared(self, self.sent[peer.name]), sinceCleared(self, heard(self, peer)))
+  const cleared = clearedAt(self, peer.name)
+  const said = lastSaid(sinceCleared(cleared, self.sent[peer.name]), sinceCleared(cleared, heard(self, peer)))
   const watched = self.watching[peer.name]
-  const watchedAt = isAfterClear(self, watched) ? watched : undefined
+  const watchedAt = isAfterClear(cleared, watched) ? watched : undefined
   if (said === undefined && watchedAt === undefined) return undefined
   const isStale = now - peer.heartbeatAt > STALE_MS
   const peerStatus: PeerStatus = isStale || peer.status === 'ended' ? 'gone' : peer.status
@@ -152,6 +155,7 @@ const start = async ($: EngineInterface) => {
     heartbeatAt: now,
     sent: stored?.sent ?? {},
     watching: stored?.watching ?? {},
+    dismissed: stored?.dismissed ?? {},
   }
   await save($)
   await refresh($)
@@ -170,6 +174,14 @@ const clear = async ($: EngineInterface) => {
   if (card === undefined) return
   card.clearedAt = await $.clock.now()
   toasted.clear()
+  await save($)
+  await refresh($)
+}
+
+const dismiss = async ($: EngineInterface, peer: string) => {
+  if (card === undefined) return
+  card.dismissed[peer] = await $.clock.now()
+  toasted.delete(peer)
   await save($)
   await refresh($)
 }
@@ -198,6 +210,11 @@ const passThrough = <E, R>($: unknown, e: E, next: { called: boolean } & ((e: E)
 const isResetFor = (request: unknown, name: string) => {
   const mods = (request as { mods?: unknown } | null)?.mods
   return Array.isArray(mods) && mods.includes(name)
+}
+
+const dismissedPeer = (request: unknown) => {
+  const { mod, entry } = (request ?? {}) as { mod?: unknown; entry?: unknown }
+  return mod === 'agent-links' && typeof entry === 'string' ? entry : undefined
 }
 
 export const register: Register = on => {
@@ -246,6 +263,13 @@ export const register: Register = on => {
   on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
     const set = await next(e)
     if (isResetFor(e.value, 'agent-links')) await quietly(clear($))
+    return set
+  }).catch(passThrough)
+
+  on('state.set', { plugin: 'mods-pane', key: 'dismissRequest' }, async ($, e, next) => {
+    const set = await next(e)
+    const peer = dismissedPeer(e.value)
+    if (peer !== undefined) await quietly(dismiss($, peer))
     return set
   }).catch(passThrough)
 }
