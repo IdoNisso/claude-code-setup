@@ -180,6 +180,7 @@ describe('drawing', () => {
         'commit-lint',
         'agent-links',
       ])
+      expect(await ui.findAll({ type: 'Text', text: /^─{80}$/ })).toHaveLength(3)
     })
 
     test(`pane wraps long lines instead of truncating on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {

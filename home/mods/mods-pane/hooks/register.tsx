@@ -148,8 +148,9 @@ export const register: Register = on => {
         width={e.props.bodyColumns}
         minHeight={e.props.placement === 'dock' ? e.props.scroll.bodyRows : undefined}
       >
-        {(await sections($)).map(section => (
-          <Box key={section.name} flexDirection="column" marginBottom={1}>
+        {(await sections($)).map((section, index, all) => (
+          <Box key={section.name} flexDirection="column" marginBottom={index === all.length - 1 ? 1 : 0}>
+            {index > 0 && <Text dimColor>{'─'.repeat(e.props.bodyColumns)}</Text>}
             <Text bold color={section.isAlert ? 'warning' : 'success'}>
               {section.isAlert ? '●' : '○'} {section.name} <Text dimColor>{section.summary}</Text>
             </Text>
