@@ -1,0 +1,7 @@
+{
+  "name": "mods-pane",
+  "version": "0.1.0",
+  "description": "Show what the block-secrets, commit-lint and sync-drift mods did in a pane that can be hidden",
+  "types": "./types/index.d.ts",
+  "dependencies": ["block-secrets", "commit-lint", "sync-drift"]
+}

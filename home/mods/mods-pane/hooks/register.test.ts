@@ -1,0 +1,154 @@
+import { describe, expect, mock, test } from 'claude-code/testing'
+
+import type { On, Register } from 'claude-code'
+import type { Engine, Plugin } from 'claude-code/testing'
+
+const PANE = 'mods'
+
+const stubEngine = (on: On, stored: Record<string, unknown> = {}) => {
+  const open = new Set<string>()
+  const clock = mock.clock(on)
+  mock.store(on, stored)
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }) as never)
+  on('ui.open', (_$, e) => {
+    open.add(e.id)
+    return { value: { isPlaced: true } } as never
+  })
+  on('ui.close', (_$, e) => {
+    open.delete(e.id)
+    return { value: undefined } as never
+  })
+  on('ui.panes', () =>
+    ({ value: [...open].map(id => ({ id, title: 'Mods', isShown: true, isFocused: false, isPlaced: true })) }) as never,
+  )
+  return { clock, open }
+}
+
+const startSession = ($: Engine) =>
+  $.session.start({ cwd: '/home/u', surface: 'terminal', isInteractive: true } as never)
+
+const runCommand = ($: Engine, args: string) =>
+  $.command.run({ command: 'mods-pane', args, origin: { kind: 'composer' }, presentation: {} } as never)
+
+const publisher = (name: string, write: Register): Plugin => ({ name, register: write })
+
+const PUBLISHERS: Plugin[] = [
+  publisher('block-secrets', on => {
+    on('session.start', async ($, e, next) => {
+      await $.state.set({ plugin: 'block-secrets', key: 'blocks' }, [
+        { tool: 'Bash', reason: 'prints a GitHub token', at: 5_000 },
+      ])
+      return next(e)
+    })
+  }),
+  publisher('commit-lint', on => {
+    on('session.start', async ($, e, next) => {
+      await $.state.set({ plugin: 'commit-lint', key: 'blocks' }, [
+        { subject: 'Fix bug', problems: ['must start with "<type>: "'], at: 6_000 },
+      ])
+      return next(e)
+    })
+  }),
+  publisher('sync-drift', on => {
+    on('session.start', async ($, e, next) => {
+      await $.state.set({ plugin: 'sync-drift', key: 'drift' }, {
+        summary: '2 changed',
+        isError: false,
+        since: 7_000,
+      })
+      return next(e)
+    })
+  }),
+]
+
+describe('visibility', () => {
+  test('opens the pane on session start', async ($, on) => {
+    const { open } = stubEngine(on)
+    await startSession($)
+    expect([...open]).toEqual([PANE])
+  })
+
+  test('starts hidden when it was hidden last time', async ($, on) => {
+    const { open } = stubEngine(on, { isHidden: true })
+    await startSession($)
+    expect([...open]).toEqual([])
+  })
+
+  test('toggles with no argument', async ($, on) => {
+    const { open } = stubEngine(on)
+    await startSession($)
+    expect((await runCommand($, '')).text).toContain('hidden')
+    expect([...open]).toEqual([])
+    expect((await runCommand($, '')).text).toContain('shown')
+    expect([...open]).toEqual([PANE])
+  })
+
+  test('sets it with true or false', async ($, on) => {
+    const { open } = stubEngine(on)
+    await startSession($)
+    await runCommand($, 'false')
+    await runCommand($, 'false')
+    expect([...open]).toEqual([])
+    await runCommand($, 'true')
+    expect([...open]).toEqual([PANE])
+  })
+
+  test('rejects other arguments', async ($, on) => {
+    const { open } = stubEngine(on)
+    await startSession($)
+    expect((await runCommand($, 'maybe')).text).toBe('Usage: /mods-pane [true|false]')
+    expect([...open]).toEqual([PANE])
+  })
+})
+
+describe('drawing', () => {
+  const surfaces = ['terminal', 'desktop'] as const
+
+  for (const surface of surfaces) {
+    test(`pane shows each mod's state on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
+      const { clock } = stubEngine(on)
+      await clock.set(10_000)
+      await startSession($)
+      const ui = await $.ui.mount({
+        plugin: 'mods-pane',
+        surface,
+        component: 'Pane',
+        requestId: PANE,
+        props: { bodyColumns: 80 } as never,
+      })
+      expect(await ui.find({ text: /block-secrets.*1 call blocked/ })).toBeDefined()
+      expect(await ui.find({ text: /Bash call prints a GitHub token/ })).toBeDefined()
+      expect(await ui.find({ text: /commit-lint.*1 commit blocked/ })).toBeDefined()
+      expect(await ui.find({ text: /sync-drift.*2 changed/ })).toBeDefined()
+    })
+
+    test(`band counts events since the pane was hidden on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
+      const { clock } = stubEngine(on)
+      await clock.set(6_500)
+      await startSession($)
+      await runCommand($, 'false')
+      const band = await $.ui.mount({
+        plugin: 'mods-pane',
+        surface,
+        component: 'AbovePrompt',
+        props: { bodyColumns: 80, hasSurvey: false } as never,
+      })
+      expect(await band.find({ text: /mods pane hidden/ })).toBeDefined()
+      expect(await band.find({ text: /1 new event\b/ })).toBeDefined()
+    })
+  }
+
+  test('band stays empty while the pane is shown', async ($, on) => {
+    stubEngine(on)
+    on('ui.render', () => ({ type: 'Box', props: {}, children: [] }) as never)
+    await startSession($)
+    const band = await $.ui.mount({
+      plugin: 'mods-pane',
+      surface: 'terminal',
+      component: 'AbovePrompt',
+      props: { bodyColumns: 80, hasSurvey: false } as never,
+    })
+    expect(await band.find({ text: /mods pane hidden/ })).toBeUndefined()
+  })
+})
