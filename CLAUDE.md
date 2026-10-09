@@ -16,7 +16,7 @@ Mods live in `home/mods/<name>/` and install to `~/.claude/mods/<name>/`. A new 
 
 ## Removing things
 
-`sync.sh install` never deletes. After removing a hook, mod, or skill from `home/`, delete its installed copy from `~/.claude/` too. `./sync.sh` lists any leftovers as `not in repo:`.
+After removing a hook, mod, or skill from `home/`, its installed copy stays in `~/.claude/`. `./sync.sh` lists it as `not in repo:`. `./sync.sh install` asks before deleting it, and keeps it when run without a terminal, which includes from the Bash tool. In that case, ask the user to run `./sync.sh install` themselves.
 
 ## README tables
 

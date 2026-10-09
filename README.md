@@ -44,7 +44,7 @@ Start a new session after installing so settings and mods load. Enabled plugins 
 
 Both `pull` and `install` overwrite without asking, so run `./sync.sh` first to see what will change.
 
-`sync.sh` never deletes anything. `./sync.sh` lists entries in `~/.claude/hooks`, `~/.claude/mods`, and `~/.claude/skills` that the repo does not track as `not in repo:`. Typically these are left over from a hook, mod, or skill that was removed from the repo. Delete them by hand, or add them to `home/` if they should be kept. `~/.claude/skills/synced` is managed by Claude Code and is ignored.
+Entries in `~/.claude/hooks`, `~/.claude/mods`, and `~/.claude/skills` that the repo does not track are usually left over from a hook, mod, or skill that was removed from the repo. `./sync.sh` lists them as `not in repo:`. After copying, `./sync.sh install` lists them again and asks whether to delete them (default: keep). When stdin is not a terminal it keeps them without asking. To keep one for good, add it to `home/`. `~/.claude/skills/synced` is managed by Claude Code and is ignored.
 
 ## Plugins
 

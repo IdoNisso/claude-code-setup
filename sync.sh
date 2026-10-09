@@ -11,7 +11,8 @@ usage() {
 usage: $0 [status|install|pull]
   status   show differences between home/ and $dest, and entries in
            $dest/{$(echo "$managed_dirs" | tr ' ' ,)} the repo does not track (default)
-  install  copy home/ files into $dest
+  install  copy home/ files into $dest, then offer to delete entries the
+           repo does not track
   pull     copy $dest files back into home/
 EOF
   exit 1
@@ -61,6 +62,28 @@ case "${1:-status}" in
       cp -p "$src/$f" "$dest/$f"
       echo "installed $f"
     done
+    stale=$(untracked_entries)
+    [ -n "$stale" ] || exit 0
+    echo
+    echo "Installed but not in repo:"
+    printf '%s\n' "$stale" | sed 's/^/  /'
+    if [ ! -t 0 ]; then
+      echo "Kept them (not a terminal, so not asking)."
+      exit 0
+    fi
+    printf 'Delete them? [y/N] '
+    read -r answer
+    case "$answer" in
+      [yY]*)
+        printf '%s\n' "$stale" | while IFS= read -r entry; do
+          rm -rf "${dest:?}/$entry"
+          echo "deleted $entry"
+        done
+        ;;
+      *)
+        echo "Kept them."
+        ;;
+    esac
     ;;
   pull)
     for f in $(tracked_files); do
