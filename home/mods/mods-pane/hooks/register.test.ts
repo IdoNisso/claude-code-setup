@@ -19,6 +19,7 @@ const stubEngine = (on: On, stored: Record<string, unknown> = {}) => {
     open.delete(e.id)
     return { value: undefined } as never
   })
+  on('ui.render', () => ({ type: 'Box', props: {}, children: [] }) as never)
   on('ui.panes', () =>
     ({ value: [...open].map(id => ({ id, title: 'Mods', isShown: true, isFocused: false, isPlaced: true })) }) as never,
   )
@@ -30,6 +31,15 @@ const startSession = ($: Engine) =>
 
 const runCommand = ($: Engine, args: string) =>
   $.command.run({ command: 'mods-pane', args, origin: { kind: 'composer' }, presentation: {} } as never)
+
+const mountBand = ($: Engine, isFullscreen?: boolean) =>
+  $.ui.mount({
+    plugin: 'mods-pane',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { bodyColumns: 80, hasSurvey: false } as never,
+    ...(isFullscreen === undefined ? {} : { viewport: { columns: 160, rows: 40, isFullscreen } }),
+  } as never)
 
 const publisher = (name: string, write: Register): Plugin => ({ name, register: write })
 
@@ -63,21 +73,44 @@ const PUBLISHERS: Plugin[] = [
 ]
 
 describe('visibility', () => {
-  test('opens the pane on session start', async ($, on) => {
+  test('opens the pane unasked where it docks', async ($, on) => {
     const { open } = stubEngine(on)
     await startSession($)
+    expect([...open]).toEqual([])
+    await mountBand($, true)
     expect([...open]).toEqual([PANE])
   })
 
-  test('starts hidden when it was hidden last time', async ($, on) => {
+  test('waits for the command on the main screen', async ($, on) => {
+    const { open } = stubEngine(on)
+    await startSession($)
+    await mountBand($, false)
+    await mountBand($)
+    expect([...open]).toEqual([])
+    await runCommand($, '')
+    expect([...open]).toEqual([PANE])
+  })
+
+  test('stays closed when it was hidden last time', async ($, on) => {
     const { open } = stubEngine(on, { isHidden: true })
     await startSession($)
+    await mountBand($, true)
+    expect([...open]).toEqual([])
+  })
+
+  test('opens unasked once per session', async ($, on) => {
+    const { open } = stubEngine(on)
+    await startSession($)
+    await mountBand($, true)
+    open.delete(PANE)
+    await mountBand($, true)
     expect([...open]).toEqual([])
   })
 
   test('toggles with no argument', async ($, on) => {
     const { open } = stubEngine(on)
     await startSession($)
+    await mountBand($, true)
     expect((await runCommand($, '')).text).toContain('hidden')
     expect([...open]).toEqual([])
     expect((await runCommand($, '')).text).toContain('shown')
@@ -87,6 +120,7 @@ describe('visibility', () => {
   test('sets it with true or false', async ($, on) => {
     const { open } = stubEngine(on)
     await startSession($)
+    await mountBand($, true)
     await runCommand($, 'false')
     await runCommand($, 'false')
     expect([...open]).toEqual([])
@@ -97,6 +131,7 @@ describe('visibility', () => {
   test('rejects other arguments', async ($, on) => {
     const { open } = stubEngine(on)
     await startSession($)
+    await mountBand($, true)
     expect((await runCommand($, 'maybe')).text).toBe('Usage: /mods-pane [true|false]')
     expect([...open]).toEqual([PANE])
   })
@@ -154,7 +189,6 @@ describe('drawing', () => {
 
   test('band stays empty while the pane is shown and nothing drifted', async ($, on) => {
     stubEngine(on)
-    on('ui.render', () => ({ type: 'Box', props: {}, children: [] }) as never)
     await startSession($)
     const band = await $.ui.mount({
       plugin: 'mods-pane',

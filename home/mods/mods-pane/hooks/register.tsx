@@ -75,6 +75,14 @@ const hide = async ($: EngineInterface) => {
   await $.ui.close({ id: PANE })
 }
 
+let hasAutoOpened = false
+
+const openWhereItDocks = async ($: EngineInterface, isFullscreen: boolean | undefined) => {
+  if (hasAutoOpened || isFullscreen !== true || (await read($, isHidden))) return
+  hasAutoOpened = true
+  void $.ui.open({ id: PANE, title: TITLE })
+}
+
 const isOpen = async ($: EngineInterface) => (await $.ui.panes()).some(pane => pane.id === PANE)
 
 export const register: Register = on => {
@@ -88,7 +96,6 @@ export const register: Register = on => {
     })
     const wasHidden = (await $.store.get(STORE_KEY)) === true
     await update($, isHidden, () => wasHidden)
-    if (!wasHidden) void $.ui.open({ id: PANE, title: TITLE })
     return started
   })
 
@@ -136,6 +143,7 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    await openWhereItDocks($, e.viewport?.isFullscreen)
     const hidden = await read($, isHidden)
     const current = await read($, drift)
     if (e.props.hasSurvey || (!hidden && current === null)) return next(e)
