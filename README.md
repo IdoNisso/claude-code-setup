@@ -1,6 +1,6 @@
 # Claude Code Setup
 
-Personal Claude Code configuration: global instructions, settings, and a custom statusline.
+Personal Claude Code configuration: global instructions, settings, skills, mods, and a custom statusline.
 
 ## Files
 
@@ -18,9 +18,17 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 
 ## Installation
 
+Prerequisites:
+
+- Claude Code with mod support (early access; verified on 2.1.295)
+- `jq`, `git`, and `curl` on `PATH` for the statusline
+
 ```bash
 ./sync.sh install   # copy home/ into ~/.claude/
+claude              # log in on first run
 ```
+
+Start a new session after installing so settings and mods load. Enabled plugins are fetched from their marketplace on startup.
 
 `sync.sh` always targets `~/.claude/`. `settings.json` and `statusline.sh` refer to that path directly, so `CLAUDE_CONFIG_DIR` is not supported.
 
