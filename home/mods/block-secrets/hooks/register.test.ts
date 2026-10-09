@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
 
@@ -6,6 +6,7 @@ const toasts: string[] = []
 
 const stubEngine = (on: On) => {
   toasts.length = 0
+  mock.clock(on)
   on('tool.call', () => ({ result: 'ran' }) as never)
   on('ui.toast', (_$, e) => {
     toasts.push(e.text)
@@ -75,5 +76,23 @@ describe('file tools', () => {
     stubEngine(on)
     const result = await $.tool.call({ tool: 'Read', file_path: '/repo/src/environment.ts' })
     expect(result.result).toBe('ran')
+  })
+})
+
+describe('published blocks', () => {
+  test('records each block for other mods to read', async ($, on) => {
+    stubEngine(on)
+    let published: { tool: string; reason: string }[] = []
+    on('state.set', { plugin: 'block-secrets', key: 'blocks' }, (_$, e, next) => {
+      published = e.value
+      return next(e)
+    })
+    await $.tool.call({ tool: 'Bash', command: 'gh auth token' })
+    await $.tool.call({ tool: 'Read', file_path: '/repo/.env' })
+    await $.tool.call({ tool: 'Bash', command: 'ls' })
+    expect(published.map(one => [one.tool, one.reason])).toEqual([
+      ['Bash', 'prints a GitHub token'],
+      ['Read', 'references a .env file'],
+    ])
   })
 })

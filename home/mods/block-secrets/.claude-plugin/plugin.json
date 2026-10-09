@@ -1,5 +1,6 @@
 {
   "name": "block-secrets",
-  "version": "0.1.0",
-  "description": "Block tool calls that read secret files or print secret environment variables"
+  "version": "0.2.0",
+  "description": "Block tool calls that read secret files or print secret environment variables",
+  "types": "./types/index.d.ts"
 }

@@ -1,4 +1,7 @@
+import { atom, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
+
+import type { SecretBlock } from '../types'
 
 type Rule = { pattern: RegExp; reason: string }
 
@@ -19,13 +22,19 @@ const COMMAND_RULES: Rule[] = [
   },
 ]
 
+const MAX_BLOCKS = 50
+
+const blocks = atom({ plugin: 'block-secrets', key: 'blocks' } as const, [])
+
 const FILE_TOOLS = ['Read', 'Edit', 'Write', 'NotebookEdit'] as const
 
 const findViolation = (text: string, rules: Rule[]) =>
   rules.find(rule => rule.pattern.test(text))?.reason
 
-const block = ($: EngineInterface, tool: string, reason: string) => {
+const block = async ($: EngineInterface, tool: string, reason: string) => {
   $.ui.toast(`block-secrets: blocked ${tool} call that ${reason}`)
+  const entry: SecretBlock = { tool, reason, at: await $.clock.now() }
+  await update($, blocks, list => [...list, entry].slice(-MAX_BLOCKS)).catch(() => {})
   return {
     deny: `Blocked by block-secrets: ${tool} call ${reason}. If this is needed, ask the user to run it themselves.`,
   }
