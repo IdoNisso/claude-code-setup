@@ -1,10 +1,10 @@
 #!/bin/sh
-# Sync tracked files between home/ in this repo and the Claude Code config dir.
+# Sync tracked files between home/ in this repo and ~/.claude.
 set -eu
 
 repo_dir=$(cd "$(dirname "$0")" && pwd)
 src="$repo_dir/home"
-dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+dest="$HOME/.claude"
 
 usage() {
   cat >&2 <<EOF

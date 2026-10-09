@@ -22,7 +22,7 @@ Personal Claude Code configuration: global instructions, settings, and a custom 
 ./sync.sh install   # copy home/ into ~/.claude/
 ```
 
-`sync.sh` targets `$CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude/`.
+`sync.sh` always targets `~/.claude/`. `settings.json` and `statusline.sh` refer to that path directly, so `CLAUDE_CONFIG_DIR` is not supported.
 
 ## Keeping in sync
 
