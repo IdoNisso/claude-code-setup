@@ -2,5 +2,9 @@
   "name": "block-secrets",
   "version": "0.2.0",
   "description": "Block tool calls that read secret files or print secret environment variables",
+  "author": {
+    "name": "Ido Nissim",
+    "email": "idonissim@gmail.com"
+  },
   "types": "./types/index.d.ts"
 }

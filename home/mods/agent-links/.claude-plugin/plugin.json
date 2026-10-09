@@ -2,5 +2,9 @@
   "name": "agent-links",
   "version": "0.1.0",
   "description": "Track which peer sessions this one is messaging and who is waiting on whom, for the mods pane",
+  "author": {
+    "name": "Ido Nissim",
+    "email": "idonissim@gmail.com"
+  },
   "types": "./types/index.d.ts"
 }

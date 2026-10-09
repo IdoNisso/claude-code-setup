@@ -2,6 +2,10 @@
   "name": "sync-drift",
   "version": "0.2.0",
   "description": "Watch ~/.claude for drift from the claude-code-setup repo and publish it for the mods pane",
+  "author": {
+    "name": "Ido Nissim",
+    "email": "idonissim@gmail.com"
+  },
   "types": "./types/index.d.ts",
   "userConfig": {
     "repoPath": {

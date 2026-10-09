@@ -2,5 +2,9 @@
   "name": "commit-lint",
   "version": "0.2.0",
   "description": "Block git commits whose subject breaks the conventional commit format",
+  "author": {
+    "name": "Ido Nissim",
+    "email": "idonissim@gmail.com"
+  },
   "types": "./types/index.d.ts"
 }
