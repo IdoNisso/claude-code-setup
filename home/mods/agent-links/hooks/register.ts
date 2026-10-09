@@ -1,6 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
+import type { DismissRequest, ResetRequest } from '../../mods-pane/types'
 import type { Link, LinkState, PeerStatus } from '../types'
 
 const HEARTBEAT_MS = 15_000
@@ -207,15 +208,9 @@ const recordWatch = async ($: EngineInterface, to: string) => {
 const passThrough = <E, R>($: unknown, e: E, next: { called: boolean } & ((e: E) => Promise<R>)) =>
   next.called ? undefined : next(e)
 
-const isResetFor = (request: unknown, name: string) => {
-  const mods = (request as { mods?: unknown } | null)?.mods
-  return Array.isArray(mods) && mods.includes(name)
-}
+const isResetFor = (request: ResetRequest | null) => request?.mods.includes('agent-links') === true
 
-const dismissedPeer = (request: unknown) => {
-  const { mod, entry } = (request ?? {}) as { mod?: unknown; entry?: unknown }
-  return mod === 'agent-links' && typeof entry === 'string' ? entry : undefined
-}
+const dismissedPeer = (request: DismissRequest | null) => (request?.mod === 'agent-links' ? request.entry : undefined)
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -262,7 +257,7 @@ export const register: Register = on => {
 
   on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
     const set = await next(e)
-    if (isResetFor(e.value, 'agent-links')) await quietly(clear($))
+    if (isResetFor(e.value)) await quietly(clear($))
     return set
   }).catch(passThrough)
 

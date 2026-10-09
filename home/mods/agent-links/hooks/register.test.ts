@@ -46,6 +46,7 @@ type Card = {
   heartbeatAt: number
   sent: Record<string, { at: number; isReply: boolean }>
   watching: Record<string, number>
+  dismissed?: Record<string, number>
 }
 
 const peerCard = (now: number, fields: Partial<Card> = {}): Card => ({
