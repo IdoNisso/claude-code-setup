@@ -143,7 +143,11 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const now = await $.clock.now()
     return (
-      <Box flexDirection="column" width={e.props.bodyColumns}>
+      <Box
+        flexDirection="column"
+        width={e.props.bodyColumns}
+        minHeight={e.props.placement === 'dock' ? e.props.scroll.bodyRows : undefined}
+      >
         {(await sections($)).map(section => (
           <Box key={section.name} flexDirection="column" marginBottom={1}>
             <Text bold color={section.isAlert ? 'warning' : 'success'}>
@@ -164,7 +168,8 @@ export const register: Register = on => {
               ))}
           </Box>
         ))}
-        <Box>
+        <Box flexGrow={1} />
+        <Box justifyContent="flex-end">
           <Button key="hide" label="Hide" hotkey="h" onPress={() => hide($)} />
         </Box>
       </Box>

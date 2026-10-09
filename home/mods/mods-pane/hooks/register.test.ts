@@ -190,6 +190,23 @@ describe('drawing', () => {
       for (const text of texts) expect(String(text.props.wrap ?? 'wrap')).not.toMatch(/truncate|end|middle/)
     })
 
+    test(`docked pane keeps Hide at its bottom right on ${surface}`, async ($, on) => {
+      stubEngine(on)
+      await startSession($)
+      const ui = await $.ui.mount({
+        plugin: 'mods-pane',
+        surface,
+        component: 'Pane',
+        requestId: PANE,
+        props: { bodyColumns: 40, placement: 'dock', scroll: { bodyRows: 30 } } as never,
+      })
+      const [root] = await ui.findAll({ type: 'Box' })
+      expect(root?.props.minHeight).toBe(30)
+      const row = root?.children.at(-1) as { props: Record<string, unknown> } | undefined
+      expect(row?.props.justifyContent).toBe('flex-end')
+      expect(await ui.find({ key: 'hide' })).toBeDefined()
+    })
+
     test(`band counts events since the pane was hidden on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
       const { clock } = stubEngine(on)
       await clock.set(6_500)
