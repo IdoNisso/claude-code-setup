@@ -5,6 +5,7 @@ const PANE = 'mods'
 const TITLE = 'Mods'
 const STORE_KEY = 'isHidden'
 const RECENT = 3
+const AGE_COLUMNS = 6
 
 const isHidden = atom({ plugin: 'mods-pane', key: 'isHidden' } as const, false)
 const hiddenAt = atom({ plugin: 'mods-pane', key: 'hiddenAt' } as const, 0)
@@ -152,10 +153,14 @@ export const register: Register = on => {
               .slice(-RECENT)
               .reverse()
               .map(entry => (
-                <Text dimColor wrap="truncate-end">
-                  {'  '}
-                  {ago(now, entry.at).padStart(3)} {entry.text}
-                </Text>
+                <Box>
+                  <Box width={AGE_COLUMNS} flexShrink={0}>
+                    <Text dimColor>{ago(now, entry.at).padStart(5)}</Text>
+                  </Box>
+                  <Box flexGrow={1} flexShrink={1}>
+                    <Text dimColor>{entry.text}</Text>
+                  </Box>
+                </Box>
               ))}
           </Box>
         ))}

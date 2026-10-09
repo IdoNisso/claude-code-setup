@@ -175,6 +175,21 @@ describe('drawing', () => {
       expect(await ui.find({ text: /brain-55 · ~\/repos\/brain · awaiting their reply · busy/ })).toBeDefined()
     })
 
+    test(`pane wraps long lines instead of truncating on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
+      stubEngine(on)
+      await startSession($)
+      const ui = await $.ui.mount({
+        plugin: 'mods-pane',
+        surface,
+        component: 'Pane',
+        requestId: PANE,
+        props: { bodyColumns: 24 } as never,
+      })
+      const texts = await ui.findAll({ type: 'Text' })
+      expect(texts.length).toBeGreaterThan(0)
+      for (const text of texts) expect(String(text.props.wrap ?? 'wrap')).not.toMatch(/truncate|end|middle/)
+    })
+
     test(`band counts events since the pane was hidden on ${surface}`, { plugins: PUBLISHERS }, async ($, on) => {
       const { clock } = stubEngine(on)
       await clock.set(6_500)
