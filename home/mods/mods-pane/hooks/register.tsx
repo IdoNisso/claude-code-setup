@@ -36,7 +36,7 @@ const USAGE = [
   '       /mods-pane add <mod>...         bring them back',
   '       /mods-pane reset <mod>...|all   clear a mod\'s own state',
   '       /mods-pane order <mod>...       put these first; no mods restores the default',
-  `       /mods-pane recent <n>           entries per section (1-${MAX_RECENT})`,
+  `       /mods-pane recent [n]           entries per section (1-${MAX_RECENT}); no n shows it`,
   '       /mods-pane list                 every mod\'s status',
   `Mods: ${MODS.join(', ')} (or a half of a name, like "secrets")`,
 ].join('\n')
@@ -209,6 +209,7 @@ const setOrder = async ($: EngineInterface, args: string[]) => {
 }
 
 const setRecent = async ($: EngineInterface, args: string[]) => {
+  if (args.length === 0) return `Showing up to ${entries(await read($, recent))} per section. /mods-pane recent <n> changes it.`
   const n = validRecent(args[0])
   if (args.length !== 1 || n === undefined) return `Give a whole number from 1 to ${MAX_RECENT}, like /mods-pane recent 5.`
   await update($, recent, () => n)

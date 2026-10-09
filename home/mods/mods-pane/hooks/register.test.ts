@@ -214,6 +214,7 @@ describe('customizing', () => {
     await startSession($)
     expect((await runCommand($, 'recent 0')).text).toStartWith('Give a whole number from 1 to 20')
     expect((await runCommand($, 'recent 1')).text).toBe('Showing up to 1 entry per section.')
+    expect((await runCommand($, 'recent')).text).toStartWith('Showing up to 1 entry per section.')
   })
 
   test('keeps its settings for the next session', { plugins: PUBLISHERS }, async ($, on) => {
