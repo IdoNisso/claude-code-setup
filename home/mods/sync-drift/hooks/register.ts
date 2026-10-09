@@ -47,6 +47,11 @@ const check = async ($: EngineInterface, options: PluginOptions) => {
   }
 }
 
+const isResetFor = (request: unknown, name: string) => {
+  const mods = (request as { mods?: unknown } | null)?.mods
+  return Array.isArray(mods) && mods.includes(name)
+}
+
 export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -60,4 +65,13 @@ export const register: Register = (on, options) => {
     await check($, options)
     return completed
   })
+
+  on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
+    const set = await next(e)
+    if (isResetFor(e.value, 'sync-drift')) {
+      await update($, drift, () => null).catch(() => {})
+      $.clock.after(0, () => void check($, options))
+    }
+    return set
+  }).catch(($, e, next) => (next.called ? undefined : next(e)))
 }

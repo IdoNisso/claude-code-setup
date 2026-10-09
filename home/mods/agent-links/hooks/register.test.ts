@@ -1,13 +1,26 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
-import type { Engine } from 'claude-code/testing'
+import type { Engine, Plugin } from 'claude-code/testing'
 
 import type { Link } from '../types'
 
 const DIR = '/home/u/.claude/agent-links'
 const ME = 'setup-f9'
 const PEER = 'brain-55'
+
+const MODS_PANE: Plugin = {
+  name: 'mods-pane',
+  register: on => {
+    on('command.run', { command: 'reset' }, async ($, e) => {
+      await $.state.set({ plugin: 'mods-pane', key: 'resetRequest' } as never, { mods: e.args.split(' '), at: 1 } as never)
+      return { text: '' }
+    })
+  },
+}
+
+const requestReset = ($: Engine, mods: string) =>
+  $.command.run({ command: 'reset', args: mods, origin: { kind: 'composer' }, presentation: {} } as never)
 
 type Card = {
   sessionId: string
@@ -189,4 +202,17 @@ test('ignores peers it never talked with', async ($, on) => {
   await startSession($, clock)
   await clock.advance(15_000)
   expect(latest()).toEqual([])
+})
+
+test('forgets earlier messages when the mods pane asks', { plugins: [MODS_PANE] }, async ($, on) => {
+  const { clock, writePeer, latest } = setup(on)
+  writePeer(peerCard(clock.now(), { sent: { [ME]: { at: clock.now(), isReply: false } } }))
+  await startSession($, clock)
+  await send($, PEER, 'which schema?')
+  expect(latest()).toHaveLength(1)
+  await requestReset($, 'agent-links')
+  expect(latest()).toEqual([])
+  await clock.advance(1_000)
+  await send($, PEER, 'still there?')
+  expect(latest().map(link => link.state)).toEqual(['waiting-on-them'])
 })

@@ -22,6 +22,7 @@ type Card = {
   heartbeatAt: number
   sent: Record<string, Message>
   watching: Record<string, number>
+  clearedAt?: number
 }
 
 let card: Card | undefined
@@ -86,9 +87,15 @@ const lastSaid = (mine: Message | undefined, theirs: Message | undefined) => {
 
 const heard = (self: Card, peer: Card) => (self.name === null ? undefined : peer.sent[self.name])
 
+const isAfterClear = (self: Card, at: number | undefined): at is number =>
+  at !== undefined && at > (self.clearedAt ?? -Infinity)
+
+const sinceCleared = (self: Card, said: Message | undefined) => (isAfterClear(self, said?.at) ? said : undefined)
+
 const linkTo = (self: Card, peer: Card & { name: string }, now: number, home: string): Link | undefined => {
-  const said = lastSaid(self.sent[peer.name], heard(self, peer))
-  const watchedAt = self.watching[peer.name]
+  const said = lastSaid(sinceCleared(self, self.sent[peer.name]), sinceCleared(self, heard(self, peer)))
+  const watched = self.watching[peer.name]
+  const watchedAt = isAfterClear(self, watched) ? watched : undefined
   if (said === undefined && watchedAt === undefined) return undefined
   const isStale = now - peer.heartbeatAt > STALE_MS
   const peerStatus: PeerStatus = isStale || peer.status === 'ended' ? 'gone' : peer.status
@@ -159,6 +166,14 @@ const setStatus = async ($: EngineInterface, status: Card['status']) => {
 
 const quietly = (work: Promise<unknown>) => work.catch(() => undefined)
 
+const clear = async ($: EngineInterface) => {
+  if (card === undefined) return
+  card.clearedAt = await $.clock.now()
+  toasted.clear()
+  await save($)
+  await refresh($)
+}
+
 const recordSend = async ($: EngineInterface, to: string) => {
   if (card === undefined) return
   const self = card
@@ -179,6 +194,11 @@ const recordWatch = async ($: EngineInterface, to: string) => {
 
 const passThrough = <E, R>($: unknown, e: E, next: { called: boolean } & ((e: E) => Promise<R>)) =>
   next.called ? undefined : next(e)
+
+const isResetFor = (request: unknown, name: string) => {
+  const mods = (request as { mods?: unknown } | null)?.mods
+  return Array.isArray(mods) && mods.includes(name)
+}
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -221,5 +241,11 @@ export const register: Register = on => {
     const isSubscribed = e.notify_when_idle === true && !('deny' in called) && called.isError !== true
     if (isSubscribed && typeof e.to === 'string') await quietly(recordWatch($, e.to))
     return called
+  }).catch(passThrough)
+
+  on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
+    const set = await next(e)
+    if (isResetFor(e.value, 'agent-links')) await quietly(clear($))
+    return set
   }).catch(passThrough)
 }

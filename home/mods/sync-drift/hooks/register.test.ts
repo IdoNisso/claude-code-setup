@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
-import type { Engine } from 'claude-code/testing'
+import type { Engine, Plugin } from 'claude-code/testing'
 
 import type { Drift } from '../types'
 
@@ -20,6 +20,19 @@ const DRIFTED = {
 }
 
 type RunResult = { exitCode: number; stdout: string }
+
+const MODS_PANE: Plugin = {
+  name: 'mods-pane',
+  register: on => {
+    on('command.run', { command: 'reset' }, async ($, e) => {
+      await $.state.set({ plugin: 'mods-pane', key: 'resetRequest' } as never, { mods: e.args.split(' '), at: 1 } as never)
+      return { text: '' }
+    })
+  },
+}
+
+const requestReset = ($: Engine, mods: string) =>
+  $.command.run({ command: 'reset', args: mods, origin: { kind: 'composer' }, presentation: {} } as never)
 
 const setup = (on: On, results: RunResult[]) => {
   const runs: string[][] = []
@@ -92,4 +105,16 @@ test('uses an absolute repo path as given', { options: { repoPath: '/srv/setup' 
   await startSession($)
   await clock.settle()
   expect(runs).toEqual([['sh', '/srv/setup/sync.sh', 'status']])
+})
+
+test('checks again from scratch when the mods pane asks', { plugins: [MODS_PANE] }, async ($, on) => {
+  const { clock, runs, published } = setup(on, [DRIFTED])
+  await startSession($)
+  await clock.settle()
+  await clock.advance(1_000)
+  await requestReset($, 'sync-drift')
+  await clock.settle()
+  expect(runs).toHaveLength(2)
+  expect(published.map(one => one?.summary ?? null)).toEqual(['2 changed, 1 not in repo', null, '2 changed, 1 not in repo'])
+  expect(published[2]?.since).toBeGreaterThan(published[0]?.since ?? Infinity)
 })

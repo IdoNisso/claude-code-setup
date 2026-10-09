@@ -57,6 +57,11 @@ const block = async ($: EngineInterface, subject: string, problems: string[]) =>
   }
 }
 
+const isResetFor = (request: unknown, name: string) => {
+  const mods = (request as { mods?: unknown } | null)?.mods
+  return Array.isArray(mods) && mods.includes(name)
+}
+
 export const register: Register = on => {
   on('tool.call', { tool: 'Bash' }, ($, e, next) => {
     const subject = commitSubject(e.command)
@@ -64,4 +69,10 @@ export const register: Register = on => {
     const problems = subjectProblems(subject)
     return problems.length > 0 ? block($, subject, problems) : next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'commit-lint: its guard failed.' }))
+
+  on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
+    const set = await next(e)
+    if (isResetFor(e.value, 'commit-lint')) await update($, blocks, () => []).catch(() => {})
+    return set
+  }).catch(($, e, next) => (next.called ? undefined : next(e)))
 }

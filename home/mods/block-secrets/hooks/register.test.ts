@@ -1,8 +1,22 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
+import type { Engine, Plugin } from 'claude-code/testing'
 
 const toasts: string[] = []
+
+const MODS_PANE: Plugin = {
+  name: 'mods-pane',
+  register: on => {
+    on('command.run', { command: 'reset' }, async ($, e) => {
+      await $.state.set({ plugin: 'mods-pane', key: 'resetRequest' } as never, { mods: e.args.split(' '), at: 1 } as never)
+      return { text: '' }
+    })
+  },
+}
+
+const requestReset = ($: Engine, mods: string) =>
+  $.command.run({ command: 'reset', args: mods, origin: { kind: 'composer' }, presentation: {} } as never)
 
 const stubEngine = (on: On) => {
   toasts.length = 0
@@ -94,5 +108,19 @@ describe('published blocks', () => {
       ['Bash', 'prints a GitHub token'],
       ['Read', 'references a .env file'],
     ])
+  })
+
+  test('clears its blocks when the mods pane asks', { plugins: [MODS_PANE] }, async ($, on) => {
+    stubEngine(on)
+    let published: unknown[] = []
+    on('state.set', { plugin: 'block-secrets', key: 'blocks' }, (_$, e, next) => {
+      published = e.value
+      return next(e)
+    })
+    await $.tool.call({ tool: 'Bash', command: 'gh auth token' })
+    await requestReset($, 'commit-lint')
+    expect(published).toHaveLength(1)
+    await requestReset($, 'commit-lint block-secrets')
+    expect(published).toEqual([])
   })
 })

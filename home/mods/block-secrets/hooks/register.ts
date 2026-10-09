@@ -42,6 +42,11 @@ const block = async ($: EngineInterface, tool: string, reason: string) => {
 
 const GUARD_FAILED = { deny: 'block-secrets: its guard failed.' }
 
+const isResetFor = (request: unknown, name: string) => {
+  const mods = (request as { mods?: unknown } | null)?.mods
+  return Array.isArray(mods) && mods.includes(name)
+}
+
 export const register: Register = on => {
   on('tool.call', { tool: 'Bash' }, ($, e, next) => {
     const reason = findViolation(e.command, COMMAND_RULES)
@@ -56,4 +61,10 @@ export const register: Register = on => {
     const reason = findViolation(path, PATH_RULES)
     return reason ? block($, e.tool, reason) : next(e)
   }).catch(($, e, next) => (next.called ? next(e) : GUARD_FAILED))
+
+  on('state.set', { plugin: 'mods-pane', key: 'resetRequest' }, async ($, e, next) => {
+    const set = await next(e)
+    if (isResetFor(e.value, 'block-secrets')) await update($, blocks, () => []).catch(() => {})
+    return set
+  }).catch(($, e, next) => (next.called ? undefined : next(e)))
 }
